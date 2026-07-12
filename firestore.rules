@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A device "belongs" to a business iff it self-registered a membership
+    // doc during the join flow. Anonymous auth provides the uid.
+    function isMember(businessId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid));
+    }
+
+    match /businesses/{businessId} {
+      // Read-only: the join screen checks existence. Businesses are created
+      // ONLY via the Firebase Console or the Admin-SDK provisioning script
+      // (which bypass rules) — never from the app.
+      allow get: if request.auth != null;
+      allow list, create, update, delete: if false;
+
+      match /members/{memberId} {
+        // Self-registration only: a device may create its own membership doc,
+        // and only under a business that actually exists.
+        allow create: if request.auth != null
+          && request.auth.uid == memberId
+          && exists(/databases/$(database)/documents/businesses/$(businessId));
+        allow read: if request.auth != null;
+        allow update, delete: if false;
+      }
+
+      match /clients/{clientId} {
+        allow read: if isMember(businessId);
+        allow create: if isMember(businessId) && validClient();
+        allow update: if isMember(businessId) && validClient();
+        allow delete: if isMember(businessId);
+
+        function validClient() {
+          return request.resource.data.name is string
+            && request.resource.data.name.size() > 0
+            && request.resource.data.balance is number;
+        }
+
+        match /transactions/{transactionId} {
+          allow read: if isMember(businessId);
+          allow create: if isMember(businessId) && validTransaction();
+          allow update: if isMember(businessId) && validTransaction();
+          allow delete: if isMember(businessId);
+
+          function validTransaction() {
+            return request.resource.data.type in ['debt', 'payment']
+              && request.resource.data.amount is number
+              && request.resource.data.amount > 0;
+          }
+        }
+      }
+    }
+
+    // Default deny for anything else.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

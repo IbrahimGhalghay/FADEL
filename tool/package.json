@@ -1,0 +1,8 @@
+{
+  "name": "fadel-admin-tools",
+  "private": true,
+  "description": "Admin provisioning scripts for the FADEL debt tracker (business creation).",
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}
