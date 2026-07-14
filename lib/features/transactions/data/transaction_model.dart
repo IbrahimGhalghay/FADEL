@@ -17,6 +17,7 @@ class ClientTransaction {
     required this.date,
     this.note,
     required this.createdBy,
+    this.createdByName,
     this.createdAt,
   });
 
@@ -26,6 +27,9 @@ class ClientTransaction {
   final DateTime date;
   final String? note;
   final String createdBy;
+
+  /// Full name of the employee who recorded this (denormalized for display).
+  final String? createdByName;
   final DateTime? createdAt;
 
   /// Effect of this transaction on the client's balance:
@@ -42,6 +46,7 @@ class ClientTransaction {
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       note: data['note'] as String?,
       createdBy: (data['createdBy'] as String?) ?? '',
+      createdByName: data['createdByName'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }

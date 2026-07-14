@@ -36,6 +36,9 @@ class AppStrings {
   static const noTransactions = 'لا توجد معاملات بعد';
   static const confirmDeleteTransaction =
       'هل أنت متأكد من حذف هذه المعاملة؟';
+  static const payDirectly = 'سداد مباشر';
+  static const payDirectlyHint =
+      'تسجيل دفعة بنفس المبلغ فوراً (الرصيد لا يتغير)';
 
   // Common
   static const save = 'حفظ';
@@ -55,6 +58,13 @@ class AppStrings {
   static const currentPin = 'أدخل الرمز الحالي';
   static const newPin = 'أدخل الرمز الجديد';
   static const pinChanged = 'تم تغيير الرمز السري بنجاح';
+
+  // Profile / user name
+  static const fullName = 'الاسم الكامل';
+  static const nameSetupTitle = 'عرّف عن نفسك';
+  static const nameSetupSubtitle =
+      'أدخل اسمك الكامل ليظهر بجانب المعاملات التي تسجلها';
+  static const continueLabel = 'متابعة';
 
   // Business setup
   static const businessSetupTitle = 'الانضمام إلى نشاط تجاري';
@@ -76,6 +86,14 @@ class AppStrings {
   static const lockTimeout = 'مدة القفل التلقائي';
   static const lockImmediately = 'فوراً';
   static const appVersion = 'إصدار التطبيق';
+  static const editLabels = 'تخصيص التسميات';
+  static const editLabelsSubtitle =
+      'غيّر أسماء الأزرار والمعاملات لتناسب نشاطك (تظهر لجميع الموظفين). اترك الحقل فارغاً للعودة إلى الاسم الافتراضي.';
+  static const labelRecordDebt = 'زر تسجيل الدين';
+  static const labelRecordPayment = 'زر تسجيل الدفعة';
+  static const labelDebt = 'اسم معاملة الدين';
+  static const labelPayment = 'اسم معاملة الدفعة';
+  static const labelsSaved = 'تم حفظ التسميات';
 
   static String minutesLabel(int minutes) {
     switch (minutes) {

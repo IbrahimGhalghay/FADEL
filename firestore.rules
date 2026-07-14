@@ -11,11 +11,13 @@ service cloud.firestore {
     }
 
     match /businesses/{businessId} {
-      // Read-only: the join screen checks existence. Businesses are created
-      // ONLY via the Firebase Console or the Admin-SDK provisioning script
-      // (which bypass rules) — never from the app.
+      // Read-only, except members may edit the shared UI labels. Businesses
+      // are created ONLY via the Firebase Console or the Admin-SDK
+      // provisioning script (which bypass rules) — never from the app.
       allow get: if request.auth != null;
-      allow list, create, update, delete: if false;
+      allow update: if isMember(businessId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['labels']);
+      allow list, create, delete: if false;
 
       match /members/{memberId} {
         // Self-registration only: a device may create its own membership doc,

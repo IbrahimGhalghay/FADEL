@@ -35,6 +35,9 @@ class TransactionRepository {
           .map((snapshot) =>
               snapshot.docs.map(ClientTransaction.fromDoc).toList());
 
+  /// [payDirectly] (debt only): also records a payment for the same amount
+  /// in the same atomic batch — the sale and its immediate settlement both
+  /// appear in history while the balance nets out unchanged.
   void addTransaction({
     required String clientId,
     required TxType type,
@@ -42,17 +45,28 @@ class TransactionRepository {
     required DateTime date,
     String? note,
     required String createdBy,
+    String? createdByName,
+    bool payDirectly = false,
   }) {
-    final delta = type == TxType.debt ? amount : -amount;
+    Map<String, dynamic> txData(TxType t) => {
+          'type': t.name,
+          'amount': amount,
+          'date': Timestamp.fromDate(date),
+          if (note != null && note.isNotEmpty) 'note': note,
+          'createdBy': createdBy,
+          'createdByName': ?createdByName,
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+
+    final withPayment = payDirectly && type == TxType.debt;
+    final signed = type == TxType.debt ? amount : -amount;
+    final delta = withPayment ? 0 : signed;
+
     final batch = _db.batch();
-    batch.set(_transactions(clientId).doc(), {
-      'type': type.name,
-      'amount': amount,
-      'date': Timestamp.fromDate(date),
-      if (note != null && note.isNotEmpty) 'note': note,
-      'createdBy': createdBy,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    batch.set(_transactions(clientId).doc(), txData(type));
+    if (withPayment) {
+      batch.set(_transactions(clientId).doc(), txData(TxType.payment));
+    }
     batch.update(_clientDoc(clientId), {
       'balance': FieldValue.increment(delta),
       'updatedAt': FieldValue.serverTimestamp(),

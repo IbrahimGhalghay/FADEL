@@ -26,18 +26,30 @@ final pinRepositoryProvider = Provider<PinRepository>(
   (ref) => PinRepository(ref.watch(secureStorageProvider)),
 );
 
-enum SessionStatus { loading, needsBusinessSetup, needsPinSetup, locked, unlocked }
+enum SessionStatus {
+  loading,
+  needsBusinessSetup,
+  needsName,
+  needsPinSetup,
+  locked,
+  unlocked,
+}
 
 class SessionState {
-  const SessionState({required this.status, this.businessId});
+  const SessionState({required this.status, this.businessId, this.userName});
 
   final SessionStatus status;
   final String? businessId;
 
-  SessionState copyWith({SessionStatus? status, String? businessId}) =>
+  /// Full name of this device's user; stamped on transactions they record.
+  final String? userName;
+
+  SessionState copyWith(
+          {SessionStatus? status, String? businessId, String? userName}) =>
       SessionState(
         status: status ?? this.status,
         businessId: businessId ?? this.businessId,
+        userName: userName ?? this.userName,
       );
 }
 
@@ -56,6 +68,7 @@ class SessionController extends Notifier<SessionState> {
   Future<void> _init() async {
     final storage = ref.read(secureStorageProvider);
     final businessId = await storage.read(key: AppConstants.businessIdKey);
+    final userName = await storage.read(key: AppConstants.userNameKey);
     final pinSet = await ref.read(pinRepositoryProvider).isPinSet();
 
     if (businessId == null) {
@@ -67,10 +80,14 @@ class SessionController extends Notifier<SessionState> {
     // Never block startup on it — the app must open offline.
     unawaited(_silentSignIn());
 
+    // Devices linked before the name feature existed land on the name step.
+    final status = userName == null
+        ? SessionStatus.needsName
+        : pinSet
+            ? SessionStatus.locked
+            : SessionStatus.needsPinSetup;
     state = SessionState(
-      status: pinSet ? SessionStatus.locked : SessionStatus.needsPinSetup,
-      businessId: businessId,
-    );
+        status: status, businessId: businessId, userName: userName);
   }
 
   Future<void> _silentSignIn() async {
@@ -83,24 +100,46 @@ class SessionController extends Notifier<SessionState> {
 
   /// Joins an existing business. Returns an error message, or null on success.
   /// The app NEVER creates a business — unknown IDs are rejected.
-  Future<String?> joinBusiness(String businessId) async {
+  Future<String?> joinBusiness(String businessId, {required String name}) async {
     final auth = ref.read(authRepositoryProvider);
     try {
       final user = await auth.ensureSignedIn();
       final exists = await auth.businessExists(businessId);
       if (!exists) return AppStrings.businessNotFound;
-      await auth.registerMembership(businessId, user.uid);
-      await ref
-          .read(secureStorageProvider)
-          .write(key: AppConstants.businessIdKey, value: businessId);
+      await auth.registerMembership(businessId, user.uid, displayName: name);
+      final storage = ref.read(secureStorageProvider);
+      await storage.write(key: AppConstants.businessIdKey, value: businessId);
+      await storage.write(key: AppConstants.userNameKey, value: name);
       state = SessionState(
         status: SessionStatus.needsPinSetup,
         businessId: businessId,
+        userName: name,
       );
       return null;
     } catch (_) {
       return AppStrings.connectionError;
     }
+  }
+
+  /// Sets the user's full name (for devices linked before this feature,
+  /// or future profile edits). Also mirrors it onto the membership doc.
+  Future<void> setName(String name) async {
+    await ref
+        .read(secureStorageProvider)
+        .write(key: AppConstants.userNameKey, value: name);
+    final auth = ref.read(authRepositoryProvider);
+    final businessId = state.businessId;
+    final uid = auth.currentUid;
+    if (businessId != null && uid != null) {
+      unawaited(auth
+          .registerMembership(businessId, uid, displayName: name)
+          .catchError((_) {}));
+    }
+    final pinSet = await ref.read(pinRepositoryProvider).isPinSet();
+    state = state.copyWith(
+      status: pinSet ? SessionStatus.locked : SessionStatus.needsPinSetup,
+      userName: name,
+    );
   }
 
   Future<void> setPin(String pin) async {

@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
 import '../../auth/providers/session_providers.dart';
+import '../../settings/providers/labels_providers.dart';
 import '../data/transaction_model.dart';
 import '../providers/transaction_providers.dart';
 
@@ -43,6 +44,7 @@ class _AddEditTransactionScreenState
       TextEditingController(text: widget.transaction?.note);
   late TxType _type = widget.transaction?.type ?? widget.initialType;
   late DateTime _date = widget.transaction?.date ?? DateTime.now();
+  bool _payDirectly = false;
 
   bool get _isEditing => widget.transaction != null;
 
@@ -78,6 +80,7 @@ class _AddEditTransactionScreenState
         note: note,
       );
     } else {
+      final session = ref.read(sessionControllerProvider);
       repo.addTransaction(
         clientId: widget.clientId,
         type: _type,
@@ -85,6 +88,8 @@ class _AddEditTransactionScreenState
         date: _date,
         note: note,
         createdBy: ref.read(authRepositoryProvider).currentUid ?? '',
+        createdByName: session.userName,
+        payDirectly: _payDirectly,
       );
     }
     context.pop();
@@ -92,11 +97,12 @@ class _AddEditTransactionScreenState
 
   @override
   Widget build(BuildContext context) {
+    final labels = ref.watch(labelsProvider);
     final title = _isEditing
         ? AppStrings.editTransaction
         : _type == TxType.debt
-            ? AppStrings.recordDebt
-            : AppStrings.recordPayment;
+            ? labels.recordDebt
+            : labels.recordPayment;
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: SingleChildScrollView(
@@ -107,17 +113,17 @@ class _AddEditTransactionScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SegmentedButton<TxType>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: TxType.debt,
-                    label: Text(AppStrings.debt),
-                    icon: Icon(Icons.arrow_upward,
+                    label: Text(labels.debt),
+                    icon: const Icon(Icons.arrow_upward,
                         color: AppTheme.debtColor),
                   ),
                   ButtonSegment(
                     value: TxType.payment,
-                    label: Text(AppStrings.payment),
-                    icon: Icon(Icons.arrow_downward,
+                    label: Text(labels.payment),
+                    icon: const Icon(Icons.arrow_downward,
                         color: AppTheme.paidColor),
                   ),
                 ],
@@ -167,6 +173,20 @@ class _AddEditTransactionScreenState
                 ),
                 maxLines: 2,
               ),
+              // "Pay Directly": debt-only, new transactions only — records a
+              // matching payment in the same atomic write.
+              if (!_isEditing && _type == TxType.debt) ...[
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  value: _payDirectly,
+                  onChanged: (value) =>
+                      setState(() => _payDirectly = value ?? false),
+                  title: const Text(AppStrings.payDirectly),
+                  subtitle: const Text(AppStrings.payDirectlyHint),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _save,

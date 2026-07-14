@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/providers/session_providers.dart';
 import '../../features/auth/screens/onboarding/business_setup_screen.dart';
+import '../../features/auth/screens/onboarding/name_setup_screen.dart';
 import '../../features/auth/screens/onboarding/pin_setup_screen.dart';
 import '../../features/auth/screens/pin_lock_screen.dart';
 import '../../features/clients/data/client_model.dart';
@@ -11,6 +12,7 @@ import '../../features/clients/screens/add_edit_client_screen.dart';
 import '../../features/clients/screens/client_detail_screen.dart';
 import '../../features/clients/screens/dashboard_screen.dart';
 import '../../features/settings/screens/change_pin_screen.dart';
+import '../../features/settings/screens/edit_labels_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/transactions/data/transaction_model.dart';
 import '../../features/transactions/screens/add_edit_transaction_screen.dart';
@@ -32,6 +34,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           return location == '/splash' ? null : '/splash';
         case SessionStatus.needsBusinessSetup:
           return location == '/setup/business' ? null : '/setup/business';
+        case SessionStatus.needsName:
+          return location == '/setup/name' ? null : '/setup/name';
         case SessionStatus.needsPinSetup:
           return location == '/setup/pin' ? null : '/setup/pin';
         case SessionStatus.locked:
@@ -52,6 +56,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/setup/business',
         builder: (context, state) => const BusinessSetupScreen(),
+      ),
+      GoRoute(
+        path: '/setup/name',
+        builder: (context, state) => const NameSetupScreen(),
       ),
       GoRoute(
         path: '/setup/pin',
@@ -102,6 +110,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/pin',
         builder: (context, state) => const ChangePinScreen(),
+      ),
+      GoRoute(
+        path: '/settings/labels',
+        builder: (context, state) => const EditLabelsScreen(),
       ),
     ],
   );

@@ -64,6 +64,14 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/settings/pin'),
           ),
           const Divider(),
+          // --- Customize captions ---
+          ListTile(
+            leading: const Icon(Icons.label_outline),
+            title: const Text(AppStrings.editLabels),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => context.push('/settings/labels'),
+          ),
+          const Divider(),
           // --- Auto-lock timeout ---
           ListTile(
             leading: const Icon(Icons.lock_clock_outlined),

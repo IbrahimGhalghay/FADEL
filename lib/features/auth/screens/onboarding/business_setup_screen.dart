@@ -18,12 +18,14 @@ class BusinessSetupScreen extends ConsumerStatefulWidget {
 class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
+  final _nameController = TextEditingController();
   String? _error;
   bool _busy = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -35,7 +37,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     });
     final error = await ref
         .read(sessionControllerProvider.notifier)
-        .joinBusiness(_controller.text.trim());
+        .joinBusiness(_controller.text.trim(),
+            name: _nameController.text.trim());
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -80,6 +83,16 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                       textDirection: TextDirection.ltr,
                       autocorrect: false,
                       enableSuggestions: false,
+                      validator: Validators.required,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: AppStrings.fullName,
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
                       validator: Validators.required,
                       onFieldSubmitted: (_) => _join(),
                     ),

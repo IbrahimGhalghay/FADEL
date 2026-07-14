@@ -6,6 +6,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../settings/providers/labels_providers.dart';
 import '../../transactions/data/transaction_model.dart';
 import '../../transactions/providers/transaction_providers.dart';
 import '../../transactions/widgets/transaction_list_tile.dart';
@@ -22,6 +23,7 @@ class ClientDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final clientAsync = ref.watch(clientStreamProvider(clientId));
     final txAsync = ref.watch(transactionsStreamProvider(clientId));
+    final labels = ref.watch(labelsProvider);
 
     return clientAsync.when(
       loading: () =>
@@ -124,7 +126,7 @@ class ClientDetailScreen extends ConsumerWidget {
                         onPressed: () => context
                             .push('/clients/$clientId/tx/new?type=debt'),
                         icon: const Icon(Icons.add),
-                        label: const Text(AppStrings.recordDebt),
+                        label: Text(labels.recordDebt),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -135,7 +137,7 @@ class ClientDetailScreen extends ConsumerWidget {
                         onPressed: () => context
                             .push('/clients/$clientId/tx/new?type=payment'),
                         icon: const Icon(Icons.remove),
-                        label: const Text(AppStrings.recordPayment),
+                        label: Text(labels.recordPayment),
                       ),
                     ),
                   ],

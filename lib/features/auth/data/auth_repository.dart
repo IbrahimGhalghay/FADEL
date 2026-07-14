@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -31,12 +33,31 @@ class AuthRepository {
   }
 
   /// Self-registers this device's anonymous uid as a member of the business.
-  Future<void> registerMembership(String businessId, String uid) {
+  Future<void> registerMembership(String businessId, String uid,
+      {String? displayName}) {
     return _db
         .collection(AppConstants.businessesCollection)
         .doc(businessId)
         .collection(AppConstants.membersCollection)
         .doc(uid)
-        .set({'joinedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+        .set({
+      'joinedAt': FieldValue.serverTimestamp(),
+      'displayName': ?displayName,
+    }, SetOptions(merge: true));
+  }
+
+  /// Live business-wide UI labels (empty map = defaults everywhere).
+  Stream<Map<String, dynamic>> watchBusinessLabels(String businessId) => _db
+      .collection(AppConstants.businessesCollection)
+      .doc(businessId)
+      .snapshots()
+      .map((doc) => (doc.data()?['labels'] as Map<String, dynamic>?) ?? {});
+
+  /// Updates the shared labels. Rules restrict members to this field only.
+  void updateBusinessLabels(String businessId, Map<String, String> labels) {
+    unawaited(_db
+        .collection(AppConstants.businessesCollection)
+        .doc(businessId)
+        .update({'labels': labels}));
   }
 }

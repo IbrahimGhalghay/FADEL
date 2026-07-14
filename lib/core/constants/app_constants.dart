@@ -18,6 +18,7 @@ class AppConstants {
 
   // Secure-storage keys
   static const String businessIdKey = 'business_id';
+  static const String userNameKey = 'user_name';
   static const String pinHashKey = 'pin_hash';
   static const String pinSaltKey = 'pin_salt';
   static const String lockTimeoutSecondsKey = 'lock_timeout_seconds';

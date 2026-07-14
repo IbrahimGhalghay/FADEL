@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/amount_text.dart';
+import '../../settings/providers/labels_providers.dart';
 import '../data/transaction_model.dart';
 
-class TransactionListTile extends StatelessWidget {
+class TransactionListTile extends ConsumerWidget {
   const TransactionListTile({
     super.key,
     required this.transaction,
@@ -17,7 +18,8 @@ class TransactionListTile extends StatelessWidget {
   final VoidCallback onLongPress;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final labels = ref.watch(labelsProvider);
     final isDebt = transaction.type == TxType.debt;
     final color = isDebt ? AppTheme.debtColor : AppTheme.paidColor;
     return ListTile(
@@ -33,7 +35,7 @@ class TransactionListTile extends StatelessWidget {
       title: Row(
         children: [
           Text(
-            isDebt ? AppStrings.debt : AppStrings.payment,
+            isDebt ? labels.debt : labels.payment,
             style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
           const Spacer(),
@@ -47,10 +49,23 @@ class TransactionListTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Text(Formatters.date(transaction.date),
-                textAlign: TextAlign.end),
+          Row(
+            children: [
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Text(Formatters.date(transaction.date)),
+              ),
+              if (transaction.createdByName != null) ...[
+                const Text('  •  '),
+                Expanded(
+                  child: Text(
+                    transaction.createdByName!,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ],
           ),
           if (transaction.note != null) Text(transaction.note!),
         ],
