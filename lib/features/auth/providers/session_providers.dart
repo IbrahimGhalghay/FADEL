@@ -121,9 +121,9 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
-  /// Sets the user's full name (for devices linked before this feature,
-  /// or future profile edits). Also mirrors it onto the membership doc.
-  Future<void> setName(String name) async {
+  /// Saves the user's full name (storage + membership doc) without touching
+  /// the session status — used when editing the name from Settings.
+  Future<void> updateName(String name) async {
     await ref
         .read(secureStorageProvider)
         .write(key: AppConstants.userNameKey, value: name);
@@ -135,10 +135,16 @@ class SessionController extends Notifier<SessionState> {
           .registerMembership(businessId, uid, displayName: name)
           .catchError((_) {}));
     }
+    state = state.copyWith(userName: name);
+  }
+
+  /// Name step of onboarding (devices linked before the name feature):
+  /// saves the name, then advances to PIN setup or the lock screen.
+  Future<void> completeNameSetup(String name) async {
+    await updateName(name);
     final pinSet = await ref.read(pinRepositoryProvider).isPinSet();
     state = state.copyWith(
       status: pinSet ? SessionStatus.locked : SessionStatus.needsPinSetup,
-      userName: name,
     );
   }
 

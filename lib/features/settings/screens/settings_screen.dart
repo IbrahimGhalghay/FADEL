@@ -11,10 +11,48 @@ import '../../auth/providers/session_providers.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _editName(
+      BuildContext context, WidgetRef ref, String? current) async {
+    final controller = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(AppStrings.changeName),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: AppStrings.fullName,
+            helperText: AppStrings.nameHint,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(AppStrings.cancel),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text(AppStrings.save),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await ref.read(sessionControllerProvider.notifier).updateName(name);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.nameSaved)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final businessId =
-        ref.watch(sessionControllerProvider.select((s) => s.businessId));
+    final session = ref.watch(sessionControllerProvider);
+    final businessId = session.businessId;
     final timeout = ref.watch(lockTimeoutProvider);
 
     return Scaffold(
@@ -54,6 +92,15 @@ class SettingsScreen extends ConsumerWidget {
                       }
                     },
             ),
+          ),
+          const Divider(),
+          // --- User full name (shown on transactions this device records) ---
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text(AppStrings.fullName),
+            subtitle: Text(session.userName ?? '—'),
+            trailing: const Icon(Icons.edit_outlined),
+            onTap: () => _editName(context, ref, session.userName),
           ),
           const Divider(),
           // --- Change PIN ---

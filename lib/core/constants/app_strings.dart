@@ -86,6 +86,9 @@ class AppStrings {
   static const lockTimeout = 'مدة القفل التلقائي';
   static const lockImmediately = 'فوراً';
   static const appVersion = 'إصدار التطبيق';
+  static const changeName = 'تغيير الاسم';
+  static const nameSaved = 'تم حفظ الاسم';
+  static const nameHint = 'يظهر بجانب المعاملات التي تسجلها';
   static const editLabels = 'تخصيص التسميات';
   static const editLabelsSubtitle =
       'غيّر أسماء الأزرار والمعاملات لتناسب نشاطك (تظهر لجميع الموظفين). اترك الحقل فارغاً للعودة إلى الاسم الافتراضي.';

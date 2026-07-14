@@ -51,20 +51,21 @@ class TransactionListTile extends ConsumerWidget {
         children: [
           Row(
             children: [
+              // Under the type label (start/right side in RTL): the date.
               Directionality(
                 textDirection: TextDirection.ltr,
                 child: Text(Formatters.date(transaction.date)),
               ),
-              if (transaction.createdByName != null) ...[
-                const Text('  •  '),
-                Expanded(
+              const Spacer(),
+              // Under the amount (end/left side in RTL): who recorded it.
+              if (transaction.createdByName != null)
+                Flexible(
                   child: Text(
                     transaction.createdByName!,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
-              ],
             ],
           ),
           if (transaction.note != null) Text(transaction.note!),

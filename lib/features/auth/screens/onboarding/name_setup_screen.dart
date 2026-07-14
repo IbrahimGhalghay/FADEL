@@ -30,7 +30,7 @@ class _NameSetupScreenState extends ConsumerState<NameSetupScreen> {
     setState(() => _busy = true);
     await ref
         .read(sessionControllerProvider.notifier)
-        .setName(_controller.text.trim());
+        .completeNameSetup(_controller.text.trim());
     // Router redirects onward (PIN setup or lock) once the state updates.
   }
 
