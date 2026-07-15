@@ -47,7 +47,10 @@ class DashboardScreen extends ConsumerWidget {
               icon: Icons.account_balance_wallet_outlined,
               child: totals.when(
                 data: (t) => Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  // Two balances hug opposite edges; a single one centers.
+                  mainAxisAlignment: t.totalSyp != 0
+                      ? MainAxisAlignment.spaceBetween
+                      : MainAxisAlignment.center,
                   children: [
                     // RTL row: SYP on the right, USD on the left.
                     if (t.totalSyp != 0)

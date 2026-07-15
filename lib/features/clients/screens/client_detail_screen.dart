@@ -105,13 +105,16 @@ class ClientDetailScreen extends ConsumerWidget {
                         style: Theme.of(context).textTheme.bodyMedium),
                     const SizedBox(height: 4),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      // Two balances hug opposite edges; a single one centers.
+                      mainAxisAlignment: visibleBalances.length > 1
+                          ? MainAxisAlignment.spaceBetween
+                          : MainAxisAlignment.center,
                       children: [
                         // RTL row: first child sits on the right —
                         // SYP on the right, USD on the left.
                         for (final (i, currency)
                             in visibleBalances.reversed.indexed) ...[
-                          if (i > 0) const SizedBox(width: 24),
+                          if (i > 0) const SizedBox(width: 16),
                           Flexible(
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
