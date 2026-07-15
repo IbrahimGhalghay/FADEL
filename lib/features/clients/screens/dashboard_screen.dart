@@ -42,50 +42,43 @@ class DashboardScreen extends ConsumerWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DashboardSummaryCard(
-                    title: AppStrings.totalOwed,
-                    icon: Icons.account_balance_wallet_outlined,
-                    child: totals.when(
-                      data: (t) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AmountText(
-                            t.totalUsd,
-                            color: t.totalUsd > 0
+            child: DashboardSummaryCard(
+              title: AppStrings.totalOwed,
+              icon: Icons.account_balance_wallet_outlined,
+              child: totals.when(
+                data: (t) => Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // RTL row: SYP on the right, USD on the left.
+                    if (t.totalSyp != 0)
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: AmountText(
+                            t.totalSyp,
+                            currency: AppCurrency.syp,
+                            color: t.totalSyp > 0
                                 ? AppTheme.debtColor
                                 : AppTheme.paidColor,
                           ),
-                          if (t.totalSyp != 0)
-                            AmountText(
-                              t.totalSyp,
-                              currency: AppCurrency.syp,
-                              color: t.totalSyp > 0
-                                  ? AppTheme.debtColor
-                                  : AppTheme.paidColor,
-                            ),
-                        ],
+                        ),
                       ),
-                      loading: () => const Text('...'),
-                      error: (_, _) => const Text('—'),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: AmountText(
+                          t.totalUsd,
+                          color: t.totalUsd > 0
+                              ? AppTheme.debtColor
+                              : AppTheme.paidColor,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DashboardSummaryCard(
-                    title: AppStrings.clientsCount,
-                    icon: Icons.people_outline,
-                    child: totals.when(
-                      data: (t) => Text('${t.clientCount}'),
-                      loading: () => const Text('...'),
-                      error: (_, _) => const Text('—'),
-                    ),
-                  ),
-                ),
-              ],
+                loading: () => const Text('...'),
+                error: (_, _) => const Text('—'),
+              ),
             ),
           ),
           Padding(

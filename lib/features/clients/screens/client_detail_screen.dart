@@ -104,18 +104,33 @@ class ClientDetailScreen extends ConsumerWidget {
                     Text(AppStrings.balance,
                         style: Theme.of(context).textTheme.bodyMedium),
                     const SizedBox(height: 4),
-                    for (final currency in visibleBalances)
-                      AmountText(
-                        client.balance(currency),
-                        currency: currency,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium!
-                            .copyWith(fontWeight: FontWeight.bold),
-                        color: client.balance(currency) > 0
-                            ? AppTheme.debtColor
-                            : AppTheme.paidColor,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // RTL row: first child sits on the right —
+                        // SYP on the right, USD on the left.
+                        for (final (i, currency)
+                            in visibleBalances.reversed.indexed) ...[
+                          if (i > 0) const SizedBox(width: 24),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: AmountText(
+                                client.balance(currency),
+                                currency: currency,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium!
+                                    .copyWith(fontWeight: FontWeight.bold),
+                                color: client.balance(currency) > 0
+                                    ? AppTheme.debtColor
+                                    : AppTheme.paidColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     if (client.phone != null) ...[
                       const SizedBox(height: 8),
                       Directionality(
