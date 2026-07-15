@@ -25,8 +25,17 @@ class _AddEditClientScreenState extends ConsumerState<AddEditClientScreen> {
       TextEditingController(text: widget.client?.phone);
   late final _notesController =
       TextEditingController(text: widget.client?.notes);
+  String? _nameError;
 
   bool get _isEditing => widget.client != null;
+
+  /// Another client (different id) already registered with this exact name?
+  /// Checked against the live client list, so it also works offline.
+  bool _isDuplicateName(String name) {
+    final clients = ref.read(clientsStreamProvider).value ?? const [];
+    return clients.any(
+        (c) => c.name.trim() == name && c.id != widget.client?.id);
+  }
 
   @override
   void dispose() {
@@ -38,8 +47,12 @@ class _AddEditClientScreenState extends ConsumerState<AddEditClientScreen> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final repo = ref.read(clientRepositoryProvider);
     final name = _nameController.text.trim();
+    if (_isDuplicateName(name)) {
+      setState(() => _nameError = AppStrings.duplicateClientName);
+      return;
+    }
+    final repo = ref.read(clientRepositoryProvider);
     final phone = _phoneController.text.trim();
     final notes = _notesController.text.trim();
     if (_isEditing) {
@@ -66,13 +79,18 @@ class _AddEditClientScreenState extends ConsumerState<AddEditClientScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: AppStrings.clientName,
-                  prefixIcon: Icon(Icons.person_outline),
+                  prefixIcon: const Icon(Icons.person_outline),
+                  errorText: _nameError,
+                  errorMaxLines: 2,
                 ),
                 textInputAction: TextInputAction.next,
                 validator: Validators.required,
                 autofocus: !_isEditing,
+                onChanged: (_) {
+                  if (_nameError != null) setState(() => _nameError = null);
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(

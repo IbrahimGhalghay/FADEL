@@ -50,7 +50,9 @@ service cloud.firestore {
           function validTransaction() {
             return request.resource.data.type in ['debt', 'payment']
               && request.resource.data.amount is number
-              && request.resource.data.amount > 0;
+              && request.resource.data.amount > 0
+              && (!('currency' in request.resource.data)
+                  || request.resource.data.currency in ['usd', 'syp']);
           }
         }
       }

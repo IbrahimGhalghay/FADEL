@@ -71,6 +71,14 @@ businesses/{businessId}                     — created by admin only
 
 Client balance = debts − payments, maintained atomically on every transaction write via `FieldValue.increment` in a `WriteBatch` (offline-safe; increments merge correctly across devices). Security rules (`firestore.rules`) restrict all client/transaction access to devices with a membership doc under that specific business.
 
-## Currency
+## Currencies
 
-Single fixed currency (USD). To change the symbol or formatting, edit one file: `lib/core/constants/currency_config.dart`.
+Two currencies: USD (`$`) and Syrian Pound (`ل.س`). Each transaction carries a currency (selector on the form, USD default); every client keeps an **independent balance per currency** — amounts are never converted. To add another currency, extend `AppCurrency` in `lib/core/constants/currency_config.dart` (one enum value + symbol/format/balance-field).
+
+## Printing statements
+
+The print button on a client's screen builds a 58mm thermal-roll PDF (كشف حساب) and opens the Android share sheet — send it to a printer app (vendor app / RawBT / system Print) or share it to the client directly. Paper width is a constant in `lib/features/clients/services/receipt_printer.dart`.
+
+## Note on build repositories
+
+`android/build.gradle.kts` and `settings.gradle.kts` include the Aliyun mirror of Google's Maven repository as a fallback — dl.google.com is intermittently unreachable from some networks, and Gradle falls through to the mirror automatically.

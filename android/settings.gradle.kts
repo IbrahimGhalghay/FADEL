@@ -12,6 +12,8 @@ pluginManagement {
 
     repositories {
         google()
+        // Mirror of Google's Maven repo (dl.google.com intermittently blocked).
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
         mavenCentral()
         gradlePluginPortal()
     }

@@ -20,6 +20,8 @@ class AppStrings {
   static const phone = 'رقم الهاتف';
   static const notes = 'ملاحظات';
   static const balance = 'الرصيد';
+  static const duplicateClientName =
+      'يوجد عميل مسجل بهذا الاسم بالفعل — استخدم اسماً مميزاً';
   static const confirmDeleteClient = 'هل أنت متأكد من حذف هذا العميل؟';
   static const clientHasTransactionsWarning =
       'تحذير: لدى هذا العميل معاملات مسجلة وسيتم حذفها جميعاً.';
@@ -36,6 +38,12 @@ class AppStrings {
   static const noTransactions = 'لا توجد معاملات بعد';
   static const confirmDeleteTransaction =
       'هل أنت متأكد من حذف هذه المعاملة؟';
+  static const printStatement = 'طباعة كشف الحساب';
+  static const receiptTitle = 'كشف حساب العميل';
+  static const receiptPrintedOn = 'تاريخ الطباعة';
+  static const currency = 'العملة';
+  static const currencyUsd = r'دولار $';
+  static const currencySyp = 'ليرة ل.س';
   static const payDirectly = 'سداد مباشر';
   static const payDirectlyHint =
       'تسجيل دفعة بنفس المبلغ فوراً (الرصيد لا يتغير)';

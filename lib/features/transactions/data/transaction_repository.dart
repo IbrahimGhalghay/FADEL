@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/currency_config.dart';
 import 'transaction_model.dart';
 
 /// CRUD for a client's transactions, keeping the client's denormalized
@@ -42,6 +43,7 @@ class TransactionRepository {
     required String clientId,
     required TxType type,
     required double amount,
+    required AppCurrency currency,
     required DateTime date,
     String? note,
     required String createdBy,
@@ -51,6 +53,7 @@ class TransactionRepository {
     Map<String, dynamic> txData(TxType t) => {
           'type': t.name,
           'amount': amount,
+          'currency': currency.name,
           'date': Timestamp.fromDate(date),
           if (note != null && note.isNotEmpty) 'note': note,
           'createdBy': createdBy,
@@ -68,7 +71,7 @@ class TransactionRepository {
       batch.set(_transactions(clientId).doc(), txData(TxType.payment));
     }
     batch.update(_clientDoc(clientId), {
-      'balance': FieldValue.increment(delta),
+      currency.balanceField: FieldValue.increment(delta),
       'updatedAt': FieldValue.serverTimestamp(),
     });
     unawaited(batch.commit());
@@ -79,20 +82,29 @@ class TransactionRepository {
     required ClientTransaction old,
     required TxType type,
     required double amount,
+    required AppCurrency currency,
     required DateTime date,
     String? note,
   }) {
     final newSigned = type == TxType.debt ? amount : -amount;
-    final delta = newSigned - old.signedAmount;
     final batch = _db.batch();
     batch.update(_transactions(clientId).doc(old.id), {
       'type': type.name,
       'amount': amount,
+      'currency': currency.name,
       'date': Timestamp.fromDate(date),
       'note': (note == null || note.isEmpty) ? FieldValue.delete() : note,
     });
+    // Currency may have changed: move the amount out of the old currency's
+    // balance and into the new one's (same currency = single net increment).
+    final balanceUpdate = currency == old.currency
+        ? {currency.balanceField: FieldValue.increment(newSigned - old.signedAmount)}
+        : {
+            old.currency.balanceField: FieldValue.increment(-old.signedAmount),
+            currency.balanceField: FieldValue.increment(newSigned),
+          };
     batch.update(_clientDoc(clientId), {
-      'balance': FieldValue.increment(delta),
+      ...balanceUpdate,
       'updatedAt': FieldValue.serverTimestamp(),
     });
     unawaited(batch.commit());
@@ -105,7 +117,8 @@ class TransactionRepository {
     final batch = _db.batch();
     batch.delete(_transactions(clientId).doc(transaction.id));
     batch.update(_clientDoc(clientId), {
-      'balance': FieldValue.increment(-transaction.signedAmount),
+      transaction.currency.balanceField:
+          FieldValue.increment(-transaction.signedAmount),
       'updatedAt': FieldValue.serverTimestamp(),
     });
     unawaited(batch.commit());

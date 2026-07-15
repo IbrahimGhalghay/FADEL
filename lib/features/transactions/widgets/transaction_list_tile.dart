@@ -41,6 +41,7 @@ class TransactionListTile extends ConsumerWidget {
           const Spacer(),
           AmountText(
             transaction.amount,
+            currency: transaction.currency,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             color: color,
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/currency_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
@@ -43,6 +44,8 @@ class _AddEditTransactionScreenState
   late final _noteController =
       TextEditingController(text: widget.transaction?.note);
   late TxType _type = widget.transaction?.type ?? widget.initialType;
+  late AppCurrency _currency =
+      widget.transaction?.currency ?? AppCurrency.usd;
   late DateTime _date = widget.transaction?.date ?? DateTime.now();
   bool _payDirectly = false;
 
@@ -76,6 +79,7 @@ class _AddEditTransactionScreenState
         old: widget.transaction!,
         type: _type,
         amount: amount,
+        currency: _currency,
         date: _date,
         note: note,
       );
@@ -85,6 +89,7 @@ class _AddEditTransactionScreenState
         clientId: widget.clientId,
         type: _type,
         amount: amount,
+        currency: _currency,
         date: _date,
         note: note,
         createdBy: ref.read(authRepositoryProvider).currentUid ?? '',
@@ -144,6 +149,35 @@ class _AddEditTransactionScreenState
                 textDirection: TextDirection.ltr,
                 validator: Validators.positiveAmount,
                 autofocus: !_isEditing,
+              ),
+              const SizedBox(height: 16),
+              // Currency of this transaction — balances are tracked
+              // independently per currency.
+              InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: AppStrings.currency,
+                  prefixIcon: Icon(Icons.currency_exchange),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                child: SegmentedButton<AppCurrency>(
+                  style: SegmentedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  segments: const [
+                    ButtonSegment(
+                      value: AppCurrency.usd,
+                      label: Text(AppStrings.currencyUsd),
+                    ),
+                    ButtonSegment(
+                      value: AppCurrency.syp,
+                      label: Text(AppStrings.currencySyp),
+                    ),
+                  ],
+                  selected: {_currency},
+                  onSelectionChanged: (selection) =>
+                      setState(() => _currency = selection.first),
+                ),
               ),
               const SizedBox(height: 16),
               InputDecorator(

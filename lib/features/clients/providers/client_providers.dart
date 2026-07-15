@@ -13,9 +13,15 @@ final clientRepositoryProvider = Provider<ClientRepository>((ref) {
   return ClientRepository(ref.watch(firestoreProvider), businessId);
 });
 
-/// Live client list, sorted by balance (highest debt first) by Firestore.
+/// Live client list, sorted highest debt first (USD, then SYP as tiebreak).
 final clientsStreamProvider = StreamProvider<List<Client>>(
-  (ref) => ref.watch(clientRepositoryProvider).watchClients(),
+  (ref) => ref.watch(clientRepositoryProvider).watchClients().map((clients) {
+    final sorted = [...clients]..sort((a, b) {
+        final byUsd = b.balanceUsd.compareTo(a.balanceUsd);
+        return byUsd != 0 ? byUsd : b.balanceSyp.compareTo(a.balanceSyp);
+      });
+    return sorted;
+  }),
 );
 
 /// Live single client (for the detail header).
@@ -45,12 +51,18 @@ final filteredClientsProvider = Provider<AsyncValue<List<Client>>>((ref) {
       .toList());
 });
 
-typedef DashboardTotals = ({double totalOwed, int clientCount});
+typedef DashboardTotals = ({
+  double totalUsd,
+  double totalSyp,
+  int clientCount,
+});
 
 /// Dashboard summary derived from the full (unfiltered) client stream.
+/// Totals are per currency — never converted or mixed.
 final dashboardTotalsProvider = Provider<AsyncValue<DashboardTotals>>((ref) {
   return ref.watch(clientsStreamProvider).whenData((clients) => (
-        totalOwed: clients.fold<double>(0, (sum, c) => sum + c.balance),
+        totalUsd: clients.fold<double>(0, (sum, c) => sum + c.balanceUsd),
+        totalSyp: clients.fold<double>(0, (sum, c) => sum + c.balanceSyp),
         clientCount: clients.length,
       ));
 });

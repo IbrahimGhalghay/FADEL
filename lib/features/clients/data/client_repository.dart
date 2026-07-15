@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/currency_config.dart';
 import 'client_model.dart';
 
 /// CRUD for clients, scoped to the linked business.
@@ -20,9 +21,11 @@ class ClientRepository {
       .doc(businessId)
       .collection(AppConstants.clientsCollection);
 
-  Stream<List<Client>> watchClients() =>
-      _clients.orderBy('balance', descending: true).snapshots().map(
-          (snapshot) => snapshot.docs.map(Client.fromDoc).toList());
+  /// Unordered stream; the provider sorts client-side across both
+  /// currencies (highest USD debt first, then SYP).
+  Stream<List<Client>> watchClients() => _clients
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map(Client.fromDoc).toList());
 
   Stream<Client?> watchClient(String id) => _clients
       .doc(id)
@@ -34,7 +37,7 @@ class ClientRepository {
       'name': name,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
-      'balance': 0,
+      for (final currency in AppCurrency.values) currency.balanceField: 0,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }));

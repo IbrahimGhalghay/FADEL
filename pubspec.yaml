@@ -2,7 +2,7 @@ name: fadel_debt_tracker
 description: "Client debt & credit tracker for FADEL — Arabic RTL, Firebase-synced."
 publish_to: 'none'
 
-version: 1.1.0+2
+version: 1.2.0+3
 
 environment:
   sdk: ^3.12.2
@@ -23,6 +23,9 @@ dependencies:
   intl: ^0.20.2
   package_info_plus: ^10.2.0
   crypto: ^3.0.7
+  pdf: ^3.13.0
+  share_plus: ^13.2.1
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -31,3 +34,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 flutter:
   uses-material-design: true
+
+  # Arabic font embedded in printed receipts (pdf package needs a raw TTF).
+  assets:
+    - assets/fonts/Tajawal-Regular.ttf
+    - assets/fonts/Tajawal-Bold.ttf

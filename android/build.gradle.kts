@@ -1,6 +1,9 @@
 allprojects {
     repositories {
         google()
+        // Mirror of Google's Maven repo — dl.google.com is intermittently
+        // unreachable from this region; Gradle falls through to the mirror.
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
         mavenCentral()
     }
 }

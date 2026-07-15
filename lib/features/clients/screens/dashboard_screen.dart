@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/currency_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/confirm_dialog.dart';
@@ -48,11 +49,24 @@ class DashboardScreen extends ConsumerWidget {
                     title: AppStrings.totalOwed,
                     icon: Icons.account_balance_wallet_outlined,
                     child: totals.when(
-                      data: (t) => AmountText(
-                        t.totalOwed,
-                        color: t.totalOwed > 0
-                            ? AppTheme.debtColor
-                            : AppTheme.paidColor,
+                      data: (t) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AmountText(
+                            t.totalUsd,
+                            color: t.totalUsd > 0
+                                ? AppTheme.debtColor
+                                : AppTheme.paidColor,
+                          ),
+                          if (t.totalSyp != 0)
+                            AmountText(
+                              t.totalSyp,
+                              currency: AppCurrency.syp,
+                              color: t.totalSyp > 0
+                                  ? AppTheme.debtColor
+                                  : AppTheme.paidColor,
+                            ),
+                        ],
                       ),
                       loading: () => const Text('...'),
                       error: (_, _) => const Text('—'),

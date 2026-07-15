@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../utils/formatters.dart';
+import '../constants/currency_config.dart';
 
 /// Renders a currency amount with LTR direction forced, so digits and the
 /// currency symbol don't get visually reordered inside the RTL layout.
 class AmountText extends StatelessWidget {
-  const AmountText(this.value, {super.key, this.style, this.color});
+  const AmountText(this.value,
+      {super.key, this.currency = AppCurrency.usd, this.style, this.color});
 
   final double value;
+  final AppCurrency currency;
   final TextStyle? style;
   final Color? color;
 
@@ -16,7 +18,7 @@ class AmountText extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Text(
-        Formatters.currency(value),
+        currency.format(value),
         style: (style ?? const TextStyle()).copyWith(color: color),
       ),
     );

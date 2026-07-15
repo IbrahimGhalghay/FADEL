@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/currency_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../data/client_model.dart';
@@ -18,7 +19,13 @@ class ClientListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final owes = client.balance > 0;
+    // One line per currency with a non-zero balance; a settled client
+    // shows a single green $0.00.
+    final visible = AppCurrency.values
+        .where((currency) => client.balance(currency) != 0)
+        .toList();
+    if (visible.isEmpty) visible.add(AppCurrency.usd);
+
     return ListTile(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -33,10 +40,21 @@ class ClientListTile extends StatelessWidget {
               textDirection: TextDirection.ltr,
               child: Text(client.phone!, textAlign: TextAlign.end),
             ),
-      trailing: AmountText(
-        client.balance,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        color: owes ? AppTheme.debtColor : AppTheme.paidColor,
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final currency in visible)
+            AmountText(
+              client.balance(currency),
+              currency: currency,
+              style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.bold),
+              color: client.balance(currency) > 0
+                  ? AppTheme.debtColor
+                  : AppTheme.paidColor,
+            ),
+        ],
       ),
     );
   }

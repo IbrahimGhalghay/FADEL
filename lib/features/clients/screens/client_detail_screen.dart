@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/currency_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/amount_text.dart';
 import '../../../core/widgets/confirm_dialog.dart';
@@ -11,6 +12,7 @@ import '../../transactions/data/transaction_model.dart';
 import '../../transactions/providers/transaction_providers.dart';
 import '../../transactions/widgets/transaction_list_tile.dart';
 import '../providers/client_providers.dart';
+import '../services/receipt_printer.dart';
 import 'dashboard_screen.dart' show confirmAndDeleteClient;
 
 /// Client info header + full transaction history + record debt/payment.
@@ -38,11 +40,23 @@ class ClientDetailScreen extends ConsumerWidget {
           });
           return const Scaffold(body: SizedBox.shrink());
         }
-        final owes = client.balance > 0;
+        final visibleBalances = AppCurrency.values
+            .where((currency) => client.balance(currency) != 0)
+            .toList();
+        if (visibleBalances.isEmpty) visibleBalances.add(AppCurrency.usd);
         return Scaffold(
           appBar: AppBar(
             title: Text(client.name),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.print_outlined),
+                tooltip: AppStrings.printStatement,
+                onPressed: () => ReceiptPrinter.printClientStatement(
+                  client: client,
+                  transactions: txAsync.value ?? const [],
+                  labels: ref.read(labelsProvider),
+                ),
+              ),
               PopupMenuButton<String>(
                 onSelected: (value) async {
                   switch (value) {
@@ -90,14 +104,18 @@ class ClientDetailScreen extends ConsumerWidget {
                     Text(AppStrings.balance,
                         style: Theme.of(context).textTheme.bodyMedium),
                     const SizedBox(height: 4),
-                    AmountText(
-                      client.balance,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium!
-                          .copyWith(fontWeight: FontWeight.bold),
-                      color: owes ? AppTheme.debtColor : AppTheme.paidColor,
-                    ),
+                    for (final currency in visibleBalances)
+                      AmountText(
+                        client.balance(currency),
+                        currency: currency,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium!
+                            .copyWith(fontWeight: FontWeight.bold),
+                        color: client.balance(currency) > 0
+                            ? AppTheme.debtColor
+                            : AppTheme.paidColor,
+                      ),
                     if (client.phone != null) ...[
                       const SizedBox(height: 8),
                       Directionality(

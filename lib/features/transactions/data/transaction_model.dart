@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../core/constants/currency_config.dart';
+
 enum TxType {
   debt,
   payment;
@@ -14,6 +16,7 @@ class ClientTransaction {
     required this.id,
     required this.type,
     required this.amount,
+    this.currency = AppCurrency.usd,
     required this.date,
     this.note,
     required this.createdBy,
@@ -24,6 +27,7 @@ class ClientTransaction {
   final String id;
   final TxType type;
   final double amount;
+  final AppCurrency currency;
   final DateTime date;
   final String? note;
   final String createdBy;
@@ -43,6 +47,7 @@ class ClientTransaction {
       id: doc.id,
       type: TxType.fromName(data['type'] as String?),
       amount: ((data['amount'] as num?) ?? 0).toDouble(),
+      currency: AppCurrency.fromName(data['currency'] as String?),
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       note: data['note'] as String?,
       createdBy: (data['createdBy'] as String?) ?? '',
