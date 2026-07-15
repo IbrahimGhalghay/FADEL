@@ -50,3 +50,6 @@ android/app/google-services.json
 # Firebase Admin SDK service account key (for tool/create_business.js — never commit)
 tool/serviceAccountKey.json
 tool/node_modules/
+
+# Gradle problem reports land here despite the relocated build dir
+android/build/
