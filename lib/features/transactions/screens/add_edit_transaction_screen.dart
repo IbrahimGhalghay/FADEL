@@ -139,9 +139,19 @@ class _AddEditTransactionScreenState
               const SizedBox(height: 20),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: AppStrings.amount,
-                  prefixIcon: Icon(Icons.attach_money),
+                  // Follows the currency toggle below ($ or ل.س).
+                  prefixIcon: SizedBox(
+                    width: 48,
+                    child: Center(
+                      child: Text(
+                        _currency.symbol,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
