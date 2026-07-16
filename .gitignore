@@ -51,5 +51,10 @@ android/app/google-services.json
 tool/serviceAccountKey.json
 tool/node_modules/
 
+# Release signing — NEVER commit. Back these up somewhere safe; losing the
+# keystore means you can't ship in-place updates to installed devices.
+android/key.properties
+android/fadel-release-key.jks
+
 # Gradle problem reports land here despite the relocated build dir
 android/build/

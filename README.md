@@ -79,6 +79,26 @@ Two currencies: USD (`$`) and Syrian Pound (`ل.س`). Each transaction carries a
 
 The print button on a client's screen builds a 58mm thermal-roll PDF (كشف حساب) and opens the Android share sheet — send it to a printer app (vendor app / RawBT / system Print) or share it to the client directly. Paper width is a constant in `lib/features/clients/services/receipt_printer.dart`.
 
+## Release signing (IMPORTANT — back this up)
+
+Release APKs are signed with a real keystore so they install on locked-down
+devices (Samsung Auto Blocker / Play Protect reject debug-signed APKs). The
+credentials live in two gitignored files under `android/`:
+
+- `android/fadel-release-key.jks` — the keystore
+- `android/key.properties` — alias + passwords (password: `Fadel@Masareef2026`)
+
+**Back both files up somewhere safe (not just this machine).** If the keystore
+is lost, you can never again ship an in-place update to already-installed
+devices — every phone would need a full uninstall + reinstall. A fresh clone
+without these files still builds/runs debug fine; only `flutter build apk
+--release` needs them.
+
+Because this signing key differs from the earlier debug-signed builds, any
+phone that has an older (debug-signed) copy must **uninstall it once** before
+installing a release-signed APK. Data is safe — it lives in Firebase and
+re-syncs after re-entering the Business ID + PIN.
+
 ## Note on build repositories
 
 `android/build.gradle.kts` and `settings.gradle.kts` include the Aliyun mirror of Google's Maven repository as a fallback — dl.google.com is intermittently unreachable from some networks, and Gradle falls through to the mirror automatically.
