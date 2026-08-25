@@ -17,27 +17,42 @@ class EditLabelsScreen extends ConsumerStatefulWidget {
 
 class _EditLabelsScreenState extends ConsumerState<EditLabelsScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _recordDebt;
-  late final TextEditingController _recordPayment;
-  late final TextEditingController _debt;
-  late final TextEditingController _payment;
+
+  /// Firestore key -> (field caption, hint/default, live value).
+  late final Map<String, (String, String, TextEditingController)> _fields;
 
   @override
   void initState() {
     super.initState();
     final labels = ref.read(labelsProvider);
-    _recordDebt = TextEditingController(text: labels.recordDebt);
-    _recordPayment = TextEditingController(text: labels.recordPayment);
-    _debt = TextEditingController(text: labels.debt);
-    _payment = TextEditingController(text: labels.payment);
+    _fields = {
+      'debt': (AppStrings.labelDebt, AppStrings.debt, labels.debt),
+      'payment': (AppStrings.labelPayment, AppStrings.payment, labels.payment),
+      'recordDebt':
+          (AppStrings.labelRecordDebt, AppStrings.recordDebt, labels.recordDebt),
+      'recordPayment': (
+        AppStrings.labelRecordPayment,
+        AppStrings.recordPayment,
+        labels.recordPayment
+      ),
+      'suppliers':
+          (AppStrings.labelSuppliers, AppStrings.suppliers, labels.suppliers),
+      'supplier':
+          (AppStrings.labelSupplier, AppStrings.supplier, labels.supplier),
+      'cargo': (AppStrings.labelCargo, AppStrings.cargo, labels.cargo),
+      'recordCargo':
+          (AppStrings.labelRecordCargo, AppStrings.recordCargo, labels.recordCargo),
+    }.map((key, value) => MapEntry(
+          key,
+          (value.$1, value.$2, TextEditingController(text: value.$3)),
+        ));
   }
 
   @override
   void dispose() {
-    _recordDebt.dispose();
-    _recordPayment.dispose();
-    _debt.dispose();
-    _payment.dispose();
+    for (final (_, _, controller) in _fields.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -48,12 +63,7 @@ class _EditLabelsScreenState extends ConsumerState<EditLabelsScreen> {
     // built-in default for any blank value.
     ref.read(authRepositoryProvider).updateBusinessLabels(
           businessId,
-          {
-            'recordDebt': _recordDebt.text.trim(),
-            'recordPayment': _recordPayment.text.trim(),
-            'debt': _debt.text.trim(),
-            'payment': _payment.text.trim(),
-          },
+          _fields.map((key, value) => MapEntry(key, value.$3.text.trim())),
         );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text(AppStrings.labelsSaved)),
@@ -75,34 +85,15 @@ class _EditLabelsScreenState extends ConsumerState<EditLabelsScreen> {
               Text(AppStrings.editLabelsSubtitle,
                   style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 24),
-              TextFormField(
-                controller: _debt,
-                decoration: const InputDecoration(
-                    labelText: AppStrings.labelDebt,
-                    hintText: AppStrings.debt),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _payment,
-                decoration: const InputDecoration(
-                    labelText: AppStrings.labelPayment,
-                    hintText: AppStrings.payment),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _recordDebt,
-                decoration: const InputDecoration(
-                    labelText: AppStrings.labelRecordDebt,
-                    hintText: AppStrings.recordDebt),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _recordPayment,
-                decoration: const InputDecoration(
-                    labelText: AppStrings.labelRecordPayment,
-                    hintText: AppStrings.recordPayment),
-              ),
-              const SizedBox(height: 24),
+              for (final (caption, hint, controller) in _fields.values) ...[
+                TextFormField(
+                  controller: controller,
+                  decoration:
+                      InputDecoration(labelText: caption, hintText: hint),
+                ),
+                const SizedBox(height: 16),
+              ],
+              const SizedBox(height: 8),
               FilledButton(
                 onPressed: _save,
                 child: const Text(AppStrings.save),

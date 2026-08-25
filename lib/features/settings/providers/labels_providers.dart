@@ -12,12 +12,25 @@ class AppLabels {
     this.recordPayment = AppStrings.recordPayment,
     this.debt = AppStrings.debt,
     this.payment = AppStrings.payment,
+    this.suppliers = AppStrings.suppliers,
+    this.supplier = AppStrings.supplier,
+    this.recordCargo = AppStrings.recordCargo,
+    this.cargo = AppStrings.cargo,
   });
 
   final String recordDebt;
   final String recordPayment;
   final String debt;
   final String payment;
+
+  /// Section name (plural, definite) — e.g. 'الموردين' or 'المستوردين'.
+  final String suppliers;
+
+  /// Same party, singular and indefinite — composed into captions like
+  /// 'إضافة مورّد' and 'حذف مورّد'.
+  final String supplier;
+  final String recordCargo;
+  final String cargo;
 
   factory AppLabels.fromMap(Map<String, dynamic> map) {
     String pick(String key, String fallback) {
@@ -30,6 +43,10 @@ class AppLabels {
       recordPayment: pick('recordPayment', AppStrings.recordPayment),
       debt: pick('debt', AppStrings.debt),
       payment: pick('payment', AppStrings.payment),
+      suppliers: pick('suppliers', AppStrings.suppliers),
+      supplier: pick('supplier', AppStrings.supplier),
+      recordCargo: pick('recordCargo', AppStrings.recordCargo),
+      cargo: pick('cargo', AppStrings.cargo),
     );
   }
 
@@ -38,6 +55,10 @@ class AppLabels {
         'recordPayment': recordPayment,
         'debt': debt,
         'payment': payment,
+        'suppliers': suppliers,
+        'supplier': supplier,
+        'recordCargo': recordCargo,
+        'cargo': cargo,
       };
 }
 

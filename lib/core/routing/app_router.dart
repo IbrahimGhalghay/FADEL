@@ -10,10 +10,15 @@ import '../../features/auth/screens/pin_lock_screen.dart';
 import '../../features/clients/data/client_model.dart';
 import '../../features/clients/screens/add_edit_client_screen.dart';
 import '../../features/clients/screens/client_detail_screen.dart';
-import '../../features/clients/screens/dashboard_screen.dart';
+import '../../features/home/screens/home_shell.dart';
 import '../../features/settings/screens/change_pin_screen.dart';
 import '../../features/settings/screens/edit_labels_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
+import '../../features/suppliers/data/supplier_model.dart';
+import '../../features/suppliers/data/supplier_transaction_model.dart';
+import '../../features/suppliers/screens/add_edit_supplier_screen.dart';
+import '../../features/suppliers/screens/add_edit_supplier_transaction_screen.dart';
+import '../../features/suppliers/screens/supplier_detail_screen.dart';
 import '../../features/transactions/data/transaction_model.dart';
 import '../../features/transactions/screens/add_edit_transaction_screen.dart';
 
@@ -71,7 +76,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const DashboardScreen(),
+        builder: (context, state) => const HomeShell(),
       ),
       GoRoute(
         path: '/clients/new',
@@ -101,6 +106,36 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => AddEditTransactionScreen(
           clientId: state.pathParameters['id']!,
           transaction: state.extra as ClientTransaction?,
+        ),
+      ),
+      GoRoute(
+        path: '/suppliers/new',
+        builder: (context, state) => const AddEditSupplierScreen(),
+      ),
+      GoRoute(
+        path: '/suppliers/:id',
+        builder: (context, state) =>
+            SupplierDetailScreen(supplierId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/suppliers/:id/edit',
+        builder: (context, state) =>
+            AddEditSupplierScreen(supplier: state.extra as Supplier?),
+      ),
+      GoRoute(
+        path: '/suppliers/:id/tx/new',
+        builder: (context, state) => AddEditSupplierTransactionScreen(
+          supplierId: state.pathParameters['id']!,
+          initialType: state.uri.queryParameters['type'] == 'payment'
+              ? SupplierTxType.payment
+              : SupplierTxType.cargo,
+        ),
+      ),
+      GoRoute(
+        path: '/suppliers/:id/tx/:txId/edit',
+        builder: (context, state) => AddEditSupplierTransactionScreen(
+          supplierId: state.pathParameters['id']!,
+          entry: state.extra as SupplierTransaction?,
         ),
       ),
       GoRoute(

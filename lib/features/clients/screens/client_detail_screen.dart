@@ -3,17 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/currency_config.dart';
+import '../../../core/models/ledger_party.dart';
+import '../../../core/services/receipt_printer.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/amount_text.dart';
+import '../../../core/widgets/balance_row.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/ledger_entry_tile.dart';
 import '../../settings/providers/labels_providers.dart';
 import '../../transactions/data/transaction_model.dart';
 import '../../transactions/providers/transaction_providers.dart';
-import '../../transactions/widgets/transaction_list_tile.dart';
 import '../providers/client_providers.dart';
-import '../services/receipt_printer.dart';
-import 'dashboard_screen.dart' show confirmAndDeleteClient;
+import 'clients_view.dart' show confirmAndDeleteClient;
 
 /// Client info header + full transaction history + record debt/payment.
 class ClientDetailScreen extends ConsumerWidget {
@@ -40,10 +40,7 @@ class ClientDetailScreen extends ConsumerWidget {
           });
           return const Scaffold(body: SizedBox.shrink());
         }
-        final visibleBalances = AppCurrency.values
-            .where((currency) => client.balance(currency) != 0)
-            .toList();
-        if (visibleBalances.isEmpty) visibleBalances.add(AppCurrency.usd);
+        final transactions = txAsync.value ?? const <ClientTransaction>[];
         return Scaffold(
           appBar: AppBar(
             title: Text(client.name),
@@ -51,10 +48,25 @@ class ClientDetailScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.print_outlined),
                 tooltip: AppStrings.printStatement,
-                onPressed: () => ReceiptPrinter.printClientStatement(
-                  client: client,
-                  transactions: txAsync.value ?? const [],
-                  labels: ref.read(labelsProvider),
+                onPressed: () => ReceiptPrinter.printStatement(
+                  title: AppStrings.receiptTitle,
+                  nameLabel: AppStrings.clientName,
+                  party: client,
+                  lines: [
+                    for (final tx in transactions)
+                      (
+                        label: tx.type == TxType.debt
+                            ? labels.debt
+                            : labels.payment,
+                        date: tx.date,
+                        amount: tx.amount,
+                        currency: tx.currency,
+                        note: tx.note,
+                      ),
+                  ],
+                  activeCurrencies: {
+                    for (final tx in transactions) tx.currency,
+                  },
                 ),
               ),
               PopupMenuButton<String>(
@@ -104,35 +116,12 @@ class ClientDetailScreen extends ConsumerWidget {
                     Text(AppStrings.balance,
                         style: Theme.of(context).textTheme.bodyMedium),
                     const SizedBox(height: 4),
-                    Row(
-                      // Two balances hug opposite edges; a single one centers.
-                      mainAxisAlignment: visibleBalances.length > 1
-                          ? MainAxisAlignment.spaceBetween
-                          : MainAxisAlignment.center,
-                      children: [
-                        // RTL row: first child sits on the right —
-                        // SYP on the right, USD on the left.
-                        for (final (i, currency)
-                            in visibleBalances.reversed.indexed) ...[
-                          if (i > 0) const SizedBox(width: 16),
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: AmountText(
-                                client.balance(currency),
-                                currency: currency,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium!
-                                    .copyWith(fontWeight: FontWeight.bold),
-                                color: client.balance(currency) > 0
-                                    ? AppTheme.debtColor
-                                    : AppTheme.paidColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    BalanceRow(
+                      balances: client.visibleBalances,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium!
+                          .copyWith(fontWeight: FontWeight.bold),
                     ),
                     if (client.phone != null) ...[
                       const SizedBox(height: 8),
@@ -193,8 +182,15 @@ class ClientDetailScreen extends ConsumerWidget {
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final tx = transactions[index];
-                        return TransactionListTile(
-                          transaction: tx,
+                        final isDebt = tx.type == TxType.debt;
+                        return LedgerEntryTile(
+                          label: isDebt ? labels.debt : labels.payment,
+                          increase: isDebt,
+                          amount: tx.amount,
+                          currency: tx.currency,
+                          date: tx.date,
+                          note: tx.note,
+                          byName: tx.createdByName,
                           onLongPress: () =>
                               _showTransactionActions(context, ref, tx),
                         );

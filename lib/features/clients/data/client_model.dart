@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/currency_config.dart';
+import '../../../core/models/ledger_party.dart';
 
-class Client {
+class Client implements LedgerParty {
   const Client({
     required this.id,
     required this.name,
@@ -14,9 +15,13 @@ class Client {
     this.updatedAt,
   });
 
+  @override
   final String id;
+  @override
   final String name;
+  @override
   final String? phone;
+  @override
   final String? notes;
 
   /// Independent denormalized running balances, one per currency.
@@ -27,11 +32,9 @@ class Client {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  @override
   double balance(AppCurrency currency) =>
       currency == AppCurrency.usd ? balanceUsd : balanceSyp;
-
-  /// True when the client owes money in any currency.
-  bool get owesAnything => balanceUsd > 0 || balanceSyp > 0;
 
   factory Client.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};

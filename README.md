@@ -67,9 +67,29 @@ businesses/{businessId}                     — created by admin only
   members/{uid}                             — one per linked device (anonymous auth uid)
   clients/{clientId}                        — name, phone?, notes?, balance (denormalized), timestamps
     transactions/{transactionId}            — type: debt|payment, amount, date, note?, createdBy, createdAt
+  suppliers/{supplierId}                    — same shape as a client
+    transactions/{transactionId}            — type: cargo|payment, amount, date, note?, createdBy, createdAt
 ```
 
-Client balance = debts − payments, maintained atomically on every transaction write via `FieldValue.increment` in a `WriteBatch` (offline-safe; increments merge correctly across devices). Security rules (`firestore.rules`) restrict all client/transaction access to devices with a membership doc under that specific business.
+Client balance = debts − payments; supplier balance = cargo received − payments made. Both are maintained atomically on every write via `FieldValue.increment` in a `WriteBatch` (offline-safe; increments merge correctly across devices). Security rules (`firestore.rules`) restrict all client/supplier access to devices with a membership doc under that specific business.
+
+## Suppliers (الموردين)
+
+Home has two tabs: **العملاء** (clients who owe the business) and the
+suppliers tab (importers the business buys from and owes). A supplier works
+exactly like a client, with cargo receipts in place of debts:
+
+- **تسجيل بضاعة** records a shipment and its price, with a note describing
+  the cargo — this raises what the business owes that supplier.
+- **تسجيل دفعة** records money paid to them, lowering the balance.
+- Tick **سداد مباشر** on a shipment that is paid on the spot: both lines
+  appear in history and the balance nets out unchanged.
+- The suppliers tab totals what is still owed, per currency; the print
+  button produces the same 58mm statement as for a client.
+
+Supplier captions are renameable business-wide in **الإعدادات → تخصيص
+التسميات** — e.g. switch مورّد/الموردين to مستورد/المستوردين, or بضاعة to
+شحنة. The change syncs to every employee's device.
 
 ## Currencies
 
@@ -77,7 +97,7 @@ Two currencies: USD (`$`) and Syrian Pound (`ل.س`). Each transaction carries a
 
 ## Printing statements
 
-The print button on a client's screen builds a 58mm thermal-roll PDF (كشف حساب) and opens the Android share sheet — send it to a printer app (vendor app / RawBT / system Print) or share it to the client directly. Paper width is a constant in `lib/features/clients/services/receipt_printer.dart`.
+The print button on a client's screen builds a 58mm thermal-roll PDF (كشف حساب) and opens the Android share sheet — send it to a printer app (vendor app / RawBT / system Print) or share it to the client directly. Paper width is a constant in `lib/core/services/receipt_printer.dart`.
 
 ## Release signing (IMPORTANT — back this up)
 

@@ -106,6 +106,38 @@ class AppStrings {
   static const labelPayment = 'اسم معاملة الدفعة';
   static const labelsSaved = 'تم حفظ التسميات';
 
+  // Suppliers (the buying side: cargo we receive, money we owe)
+  static const clientsTab = 'العملاء';
+  static const suppliers = 'الموردين';
+  static const supplier = 'مورّد';
+  static const totalDue = 'إجمالي المستحق عليك';
+  static const nameField = 'الاسم';
+  static const recordCargo = 'تسجيل بضاعة';
+  static const cargo = 'بضاعة';
+  static const cargoNote = 'ملاحظة عن البضاعة (اختياري)';
+  static const duplicateSupplierName =
+      'يوجد مورّد مسجل بهذا الاسم بالفعل — استخدم اسماً مميزاً';
+  static const supplierHasEntriesWarning =
+      'تحذير: لدى هذا المورّد معاملات مسجلة وسيتم حذفها جميعاً.';
+  static const payDirectlyCargoHint =
+      'تسجيل دفعة بنفس المبلغ فوراً (المستحق لا يتغير)';
+
+  // Label customization (suppliers)
+  static const labelSuppliers = 'اسم قسم الموردين';
+  static const labelSupplier = 'اسم المورّد المفرد';
+  static const labelRecordCargo = 'زر تسجيل البضاعة';
+  static const labelCargo = 'اسم معاملة البضاعة';
+
+  /// Composed captions, so a renamed party label propagates everywhere.
+  static String addOf(String noun) => 'إضافة $noun';
+  static String editOf(String noun) => 'تعديل $noun';
+  static String deleteOf(String noun) => 'حذف $noun';
+  static String noneYet(String noun) => 'لا يوجد $noun بعد';
+  /// The dialog title already names what is being deleted, so the body
+  /// stays generic — a renamed label can't break its grammar.
+  static const confirmDeleteGeneric = 'هل أنت متأكد من الحذف؟';
+  static String statementOf(String noun) => 'كشف حساب $noun';
+
   static String minutesLabel(int minutes) {
     switch (minutes) {
       case 1:

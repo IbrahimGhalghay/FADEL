@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class DashboardSummaryCard extends StatelessWidget {
-  const DashboardSummaryCard({
+class SummaryCard extends StatelessWidget {
+  const SummaryCard({
     super.key,
     required this.title,
     required this.child,

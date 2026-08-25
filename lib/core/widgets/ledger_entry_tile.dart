@@ -1,47 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/amount_text.dart';
-import '../../settings/providers/labels_providers.dart';
-import '../data/transaction_model.dart';
+import '../constants/currency_config.dart';
+import '../theme/app_theme.dart';
+import '../utils/formatters.dart';
+import 'amount_text.dart';
 
-class TransactionListTile extends ConsumerWidget {
-  const TransactionListTile({
+/// One entry in a party's history — a debt or cargo receipt ([increase]
+/// true, red) or a payment ([increase] false, green).
+class LedgerEntryTile extends StatelessWidget {
+  const LedgerEntryTile({
     super.key,
-    required this.transaction,
+    required this.label,
+    required this.increase,
+    required this.amount,
+    required this.currency,
+    required this.date,
+    this.note,
+    this.byName,
     required this.onLongPress,
   });
 
-  final ClientTransaction transaction;
+  final String label;
+  final bool increase;
+  final double amount;
+  final AppCurrency currency;
+  final DateTime date;
+  final String? note;
+
+  /// Employee who recorded the entry.
+  final String? byName;
   final VoidCallback onLongPress;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final labels = ref.watch(labelsProvider);
-    final isDebt = transaction.type == TxType.debt;
-    final color = isDebt ? AppTheme.debtColor : AppTheme.paidColor;
+  Widget build(BuildContext context) {
+    final color = increase ? AppTheme.debtColor : AppTheme.paidColor;
     return ListTile(
       onLongPress: onLongPress,
       leading: CircleAvatar(
         backgroundColor: color.withValues(alpha: 0.12),
         child: Icon(
           // Vertical arrows need no RTL mirroring.
-          isDebt ? Icons.arrow_upward : Icons.arrow_downward,
+          increase ? Icons.arrow_upward : Icons.arrow_downward,
           color: color,
         ),
       ),
       title: Row(
         children: [
-          Text(
-            isDebt ? labels.debt : labels.payment,
-            style: TextStyle(color: color, fontWeight: FontWeight.w600),
-          ),
+          Text(label,
+              style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           const Spacer(),
           AmountText(
-            transaction.amount,
-            currency: transaction.currency,
+            amount,
+            currency: currency,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             color: color,
           ),
@@ -55,21 +65,21 @@ class TransactionListTile extends ConsumerWidget {
               // Under the type label (start/right side in RTL): the date.
               Directionality(
                 textDirection: TextDirection.ltr,
-                child: Text(Formatters.date(transaction.date)),
+                child: Text(Formatters.date(date)),
               ),
               const Spacer(),
               // Under the amount (end/left side in RTL): who recorded it.
-              if (transaction.createdByName != null)
+              if (byName != null)
                 Flexible(
                   child: Text(
-                    transaction.createdByName!,
+                    byName!,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ),
             ],
           ),
-          if (transaction.note != null) Text(transaction.note!),
+          if (note != null) Text(note!),
         ],
       ),
     );

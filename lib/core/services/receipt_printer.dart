@@ -6,17 +6,25 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/currency_config.dart';
-import '../../../core/utils/formatters.dart';
-import '../../settings/providers/labels_providers.dart';
-import '../../transactions/data/transaction_model.dart';
-import '../data/client_model.dart';
+import '../constants/app_strings.dart';
+import '../constants/currency_config.dart';
+import '../models/ledger_party.dart';
+import '../utils/formatters.dart';
 
-/// Builds a client account statement PDF sized for small thermal receipt
-/// printers (58mm roll) and opens the Android share sheet — send it to the
-/// thermal printer's app (vendor app / RawBT), a PDF viewer to print from,
-/// or straight to the client on WhatsApp.
+/// One printed history line — a debt/payment for a client, or a
+/// cargo/payment for a supplier.
+typedef StatementLine = ({
+  String label,
+  DateTime date,
+  double amount,
+  AppCurrency currency,
+  String? note,
+});
+
+/// Builds an account statement PDF sized for small thermal receipt printers
+/// (58mm roll) and opens the Android share sheet — send it to the thermal
+/// printer's app (vendor app / RawBT), a PDF viewer to print from, or
+/// straight to the client on WhatsApp.
 class ReceiptPrinter {
   ReceiptPrinter._();
 
@@ -24,10 +32,15 @@ class ReceiptPrinter {
   /// ever switches to 80mm paper (use PdfPageFormat.roll80).
   static const PdfPageFormat _format = PdfPageFormat.roll57;
 
-  static Future<void> printClientStatement({
-    required Client client,
-    required List<ClientTransaction> transactions,
-    required AppLabels labels,
+  /// [lines] arrive newest-first (as displayed) and are printed oldest-first.
+  /// [activeCurrencies] adds currencies to the balance footer even when they
+  /// have settled to zero, so a fully paid-off currency still shows.
+  static Future<void> printStatement({
+    required String title,
+    required String nameLabel,
+    required LedgerParty party,
+    required List<StatementLine> lines,
+    required Set<AppCurrency> activeCurrencies,
   }) async {
     final regular =
         pw.Font.ttf(await rootBundle.load('assets/fonts/Tajawal-Regular.ttf'));
@@ -50,38 +63,37 @@ class ReceiptPrinter {
                     style: pw.TextStyle(font: bold, fontSize: 12)),
               ),
               pw.Center(
-                child: pw.Text(AppStrings.receiptTitle,
-                    style: const pw.TextStyle(fontSize: 9)),
+                child: pw.Text(title, style: const pw.TextStyle(fontSize: 9)),
               ),
               _divider(),
-              _row('${AppStrings.clientName}:', client.name, bold: true),
-              if (client.phone != null)
-                _row('${AppStrings.phone}:', client.phone!, ltrValue: true),
+              _row('$nameLabel:', party.name, bold: true),
+              if (party.phone != null)
+                _row('${AppStrings.phone}:', party.phone!, ltrValue: true),
               _row('${AppStrings.receiptPrintedOn}:',
                   Formatters.date(DateTime.now()), ltrValue: true),
               _divider(),
-              // --- Transactions, oldest first on paper ---
-              for (final tx in transactions.reversed) ...[
+              // --- History, oldest first on paper ---
+              for (final line in lines.reversed) ...[
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text(
-                      '${_typeLabel(tx, labels)}  ${Formatters.date(tx.date)}',
+                      '${line.label}  ${Formatters.date(line.date)}',
                       style: const pw.TextStyle(fontSize: 8),
                     ),
-                    _amount(tx.currency, tx.amount,
+                    _amount(line.currency, line.amount,
                         pw.TextStyle(font: bold, fontSize: 8)),
                   ],
                 ),
-                if (tx.note != null)
+                if (line.note != null)
                   pw.Padding(
                     padding: const pw.EdgeInsets.only(right: 8),
-                    child: pw.Text(tx.note!,
+                    child: pw.Text(line.note!,
                         style: const pw.TextStyle(fontSize: 7)),
                   ),
                 pw.SizedBox(height: 2),
               ],
-              if (transactions.isEmpty)
+              if (lines.isEmpty)
                 pw.Center(
                   child: pw.Text(AppStrings.noTransactions,
                       style: const pw.TextStyle(fontSize: 8)),
@@ -89,14 +101,14 @@ class ReceiptPrinter {
               _divider(),
               // --- Balance per currency (only currencies with activity) ---
               for (final currency in AppCurrency.values)
-                if (client.balance(currency) != 0 ||
-                    transactions.any((t) => t.currency == currency))
+                if (party.balance(currency) != 0 ||
+                    activeCurrencies.contains(currency))
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text('${AppStrings.balance} (${currency.symbol}):',
                           style: const pw.TextStyle(fontSize: 8)),
-                      _amount(currency, client.balance(currency),
+                      _amount(currency, party.balance(currency),
                           pw.TextStyle(font: bold, fontSize: 8)),
                     ],
                   ),
@@ -115,12 +127,9 @@ class ReceiptPrinter {
 
     await SharePlus.instance.share(ShareParams(
       files: [XFile(file.path, mimeType: 'application/pdf')],
-      subject: '${AppStrings.receiptTitle} - ${client.name}',
+      subject: '$title - ${party.name}',
     ));
   }
-
-  static String _typeLabel(ClientTransaction tx, AppLabels labels) =>
-      tx.type == TxType.debt ? labels.debt : labels.payment;
 
   /// USD renders as an LTR run ($1,250.00). SYP stays in the RTL context so
   /// the pdf bidi engine keeps the "ل.س" suffix letters in correct order.

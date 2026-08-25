@@ -56,6 +56,35 @@ service cloud.firestore {
           }
         }
       }
+
+      match /suppliers/{supplierId} {
+        allow read: if isMember(businessId);
+        allow create: if isMember(businessId) && validSupplier();
+        allow update: if isMember(businessId) && validSupplier();
+        allow delete: if isMember(businessId);
+
+        function validSupplier() {
+          return request.resource.data.name is string
+            && request.resource.data.name.size() > 0
+            && request.resource.data.balance is number;
+        }
+
+        // Cargo received from the supplier, and payments made to them.
+        match /transactions/{transactionId} {
+          allow read: if isMember(businessId);
+          allow create: if isMember(businessId) && validSupplierEntry();
+          allow update: if isMember(businessId) && validSupplierEntry();
+          allow delete: if isMember(businessId);
+
+          function validSupplierEntry() {
+            return request.resource.data.type in ['cargo', 'payment']
+              && request.resource.data.amount is number
+              && request.resource.data.amount > 0
+              && (!('currency' in request.resource.data)
+                  || request.resource.data.currency in ['usd', 'syp']);
+          }
+        }
+      }
     }
 
     // Default deny for anything else.
