@@ -47,6 +47,10 @@ class AppStrings {
   static const payDirectly = 'سداد مباشر';
   static const payDirectlyHint =
       'تسجيل دفعة بنفس المبلغ فوراً (الرصيد لا يتغير)';
+  static const writeRejected =
+      'لم يُحفظ التغيير لأنه يتعارض مع تعديل أو حذف من جهاز آخر، وتم التراجع عنه.';
+  static const syncFailed =
+      'تعذّرت المزامنة — تحقق من الاتصال بالإنترنت وحاول مجدداً.';
 
   // Common
   static const save = 'حفظ';

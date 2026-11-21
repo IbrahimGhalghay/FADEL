@@ -1,9 +1,10 @@
 allprojects {
     repositories {
-        google()
-        // Mirror of Google's Maven repo — dl.google.com is intermittently
-        // unreachable from this region; Gradle falls through to the mirror.
+        // Mirror of Google's Maven repo FIRST: from this network dl.google.com
+        // answers real files with 404, and Gradle treats a 404 as "artifact
+        // doesn't exist" instead of falling through to the next repo.
         maven { url = uri("https://maven.aliyun.com/repository/google") }
+        google()
         mavenCentral()
     }
 }

@@ -132,7 +132,7 @@ Future<bool> confirmAndDeleteClient(
         : AppStrings.confirmDeleteClient,
   );
   if (confirmed) {
-    await repo.deleteClient(client.id);
+    repo.deleteClient(client);
   }
   return confirmed;
 }

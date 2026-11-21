@@ -139,7 +139,7 @@ Future<bool> confirmAndDeleteSupplier(
         : AppStrings.confirmDeleteGeneric,
   );
   if (confirmed) {
-    await repo.deleteSupplier(supplier.id);
+    repo.deleteSupplier(supplier);
   }
   return confirmed;
 }

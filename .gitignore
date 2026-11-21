@@ -58,3 +58,6 @@ android/fadel-release-key.jks
 
 # Gradle problem reports land here despite the relocated build dir
 android/build/
+
+# Data exports (contain business data — never commit)
+exports/

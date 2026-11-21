@@ -22,6 +22,7 @@ class ClientTransaction {
     required this.createdBy,
     this.createdByName,
     this.createdAt,
+    this.deleted = false,
   });
 
   final String id;
@@ -36,12 +37,26 @@ class ClientTransaction {
   final String? createdByName;
   final DateTime? createdAt;
 
+  /// Soft-deleted: kept for the record but hidden and excluded from the
+  /// balance. Entries are never hard deleted.
+  final bool deleted;
+
+  /// This entry as this device sees it, for the activity log.
+  Map<String, dynamic> toLog() => {
+    'type': type.name,
+    'amount': amount,
+    'currency': currency.name,
+    'date': Timestamp.fromDate(date),
+    'note': ?note,
+  };
+
   /// Effect of this transaction on the client's balance:
   /// debt increases what the client owes, payment decreases it.
   double get signedAmount => type == TxType.debt ? amount : -amount;
 
   factory ClientTransaction.fromDoc(
-      DocumentSnapshot<Map<String, dynamic>> doc) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? {};
     return ClientTransaction(
       id: doc.id,
@@ -53,6 +68,7 @@ class ClientTransaction {
       createdBy: (data['createdBy'] as String?) ?? '',
       createdByName: data['createdByName'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      deleted: data['deleted'] == true,
     );
   }
 }

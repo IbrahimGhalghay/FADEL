@@ -3,8 +3,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app.dart';
+import 'core/services/activity_log.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -18,5 +20,13 @@ Future<void> main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
   await initializeDateFormatting('ar');
-  runApp(const ProviderScope(child: FadelApp()));
+  // Stamped on every activity-log record.
+  final info = await PackageInfo.fromPlatform();
+  runApp(ProviderScope(
+    overrides: [
+      appVersionProvider
+          .overrideWithValue('${info.version}+${info.buildNumber}'),
+    ],
+    child: const FadelApp(),
+  ));
 }

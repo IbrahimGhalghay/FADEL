@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/activity_log.dart';
 import '../../auth/providers/session_providers.dart';
 import '../data/client_model.dart';
 import '../data/client_repository.dart';
@@ -10,7 +11,8 @@ final clientRepositoryProvider = Provider<ClientRepository>((ref) {
   if (businessId == null) {
     throw StateError('clientRepositoryProvider read before business link');
   }
-  return ClientRepository(ref.watch(firestoreProvider), businessId);
+  return ClientRepository(
+      ref.watch(firestoreProvider), businessId, ref.watch(activityLogProvider));
 });
 
 /// Live client list, sorted highest debt first (USD, then SYP as tiebreak).

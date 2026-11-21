@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/currency_config.dart';
+import '../../../core/services/activity_log.dart';
 import 'supplier_model.dart';
 import 'supplier_transaction_model.dart';
 
@@ -14,11 +13,15 @@ import 'supplier_transaction_model.dart';
 /// and balances move via WriteBatch + FieldValue.increment rather than
 /// runTransaction, which cannot run offline. Increments are commutative, so
 /// several devices editing while offline still merge to the right total.
+/// Every write carries an [ActivityLog] record; deletes are soft.
 class SupplierRepository {
-  SupplierRepository(this._db, this.businessId);
+  SupplierRepository(this._db, this.businessId, this._log);
 
   final FirebaseFirestore _db;
   final String businessId;
+  final ActivityLog _log;
+
+  static const _ledger = AppConstants.suppliersCollection;
 
   CollectionReference<Map<String, dynamic>> get _suppliers => _db
       .collection(AppConstants.businessesCollection)
@@ -29,70 +32,122 @@ class SupplierRepository {
       _suppliers.doc(id);
 
   CollectionReference<Map<String, dynamic>> _entries(String supplierId) =>
-      _supplierDoc(supplierId)
-          .collection(AppConstants.transactionsCollection);
+      _supplierDoc(supplierId).collection(AppConstants.transactionsCollection);
 
   // --- Suppliers ---
 
-  /// Unordered stream; the provider sorts client-side by outstanding amount.
-  Stream<List<Supplier>> watchSuppliers() => _suppliers
-      .snapshots()
-      .map((snapshot) => snapshot.docs.map(Supplier.fromDoc).toList());
+  /// Unordered stream of non-deleted suppliers; the provider sorts
+  /// client-side by outstanding amount.
+  Stream<List<Supplier>> watchSuppliers() => _suppliers.snapshots().map(
+    (snapshot) =>
+        snapshot.docs.map(Supplier.fromDoc).where((s) => !s.deleted).toList(),
+  );
 
-  Stream<Supplier?> watchSupplier(String id) => _supplierDoc(id)
-      .snapshots()
-      .map((doc) => doc.exists ? Supplier.fromDoc(doc) : null);
+  /// Emits null once the supplier is gone or soft-deleted.
+  Stream<Supplier?> watchSupplier(String id) =>
+      _supplierDoc(id).snapshots().map((doc) {
+        if (!doc.exists) return null;
+        final supplier = Supplier.fromDoc(doc);
+        return supplier.deleted ? null : supplier;
+      });
 
   void addSupplier({required String name, String? phone, String? notes}) {
-    unawaited(_suppliers.add({
+    final data = {
       'name': name,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
-      for (final currency in AppCurrency.values) currency.balanceField: 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }));
+    };
+    final ref = _suppliers.doc();
+    final batch = _db.batch()
+      ..set(ref, {
+        ...data,
+        for (final currency in AppCurrency.values) currency.balanceField: 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    _log.commit(
+      batch,
+      action: 'party.create',
+      ledger: _ledger,
+      partyId: ref.id,
+      after: data,
+    );
   }
 
-  void updateSupplier(String id,
-      {required String name, String? phone, String? notes}) {
-    unawaited(_supplierDoc(id).update({
-      'name': name,
-      'phone': (phone == null || phone.isEmpty) ? FieldValue.delete() : phone,
-      'notes': (notes == null || notes.isEmpty) ? FieldValue.delete() : notes,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }));
+  void updateSupplier(
+    Supplier old, {
+    required String name,
+    String? phone,
+    String? notes,
+  }) {
+    final batch = _db.batch()
+      ..update(_supplierDoc(old.id), {
+        'name': name,
+        'phone': (phone == null || phone.isEmpty) ? FieldValue.delete() : phone,
+        'notes': (notes == null || notes.isEmpty) ? FieldValue.delete() : notes,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    _log.commit(
+      batch,
+      action: 'party.update',
+      ledger: _ledger,
+      partyId: old.id,
+      before: old.toLog(),
+      after: {
+        'name': name,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+    );
   }
 
-  /// Whether the supplier has any history (cache-backed offline).
+  /// Whether the supplier has any non-deleted history (cache-backed offline).
   Future<bool> hasEntries(String id) async {
-    final snapshot = await _entries(id).limit(1).get();
-    return snapshot.docs.isNotEmpty;
+    final snapshot = await _entries(id).get();
+    return snapshot.docs.any((doc) => doc.data()['deleted'] != true);
   }
 
-  /// Deletes the supplier and cascades to its entries (Firestore never
-  /// cascades automatically), in chunked batches.
-  Future<void> deleteSupplier(String id) async {
-    final entries = await _entries(id).get();
-    const chunkSize = 450; // stay under Firestore's 500-op batch limit
-    for (var i = 0; i < entries.docs.length; i += chunkSize) {
-      final batch = _db.batch();
-      for (final doc in entries.docs.skip(i).take(chunkSize)) {
-        batch.delete(doc.reference);
-      }
-      unawaited(batch.commit());
-    }
-    unawaited(_supplierDoc(id).delete());
+  /// Soft delete: the supplier (and its untouched history) stays in
+  /// Firestore stamped `deleted`, and disappears from every list and total.
+  void deleteSupplier(Supplier supplier) {
+    final batch = _db.batch()
+      ..update(_supplierDoc(supplier.id), {
+        ..._log.deletionStamp,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    _log.commit(
+      batch,
+      action: 'party.delete',
+      ledger: _ledger,
+      partyId: supplier.id,
+      before: supplier.toLog(),
+    );
   }
 
   // --- Cargo / payment entries ---
 
+  /// Live, non-deleted history, newest first.
   Stream<List<SupplierTransaction>> watchEntries(String supplierId) =>
       _entries(supplierId)
           .orderBy('date', descending: true)
           .snapshots()
-          .map((snapshot) =>
-              snapshot.docs.map(SupplierTransaction.fromDoc).toList());
+          .map(
+            (snapshot) => snapshot.docs
+                .map(SupplierTransaction.fromDoc)
+                .where((entry) => !entry.deleted)
+                .toList(),
+          );
+
+  /// Reads the supplier and its history straight from the server (the same
+  /// query as [watchEntries], so it rides the live listener). Completes once
+  /// both are current; throws if the server can't be reached.
+  Future<void> fetchFromServer(String supplierId) async {
+    const server = GetOptions(source: Source.server);
+    await Future.wait([
+      _entries(supplierId).orderBy('date', descending: true).get(server),
+      _supplierDoc(supplierId).get(server),
+    ]);
+  }
 
   /// [payDirectly] (cargo only): also records a payment of the same amount
   /// in the same atomic batch — the shipment and its immediate settlement
@@ -109,31 +164,47 @@ class SupplierRepository {
     bool payDirectly = false,
   }) {
     Map<String, dynamic> entryData(SupplierTxType t) => {
-          'type': t.name,
-          'amount': amount,
-          'currency': currency.name,
-          'date': Timestamp.fromDate(date),
-          if (note != null && note.isNotEmpty) 'note': note,
-          'createdBy': createdBy,
-          'createdByName': ?createdByName,
-          'createdAt': FieldValue.serverTimestamp(),
-        };
+      'type': t.name,
+      'amount': amount,
+      'currency': currency.name,
+      'date': Timestamp.fromDate(date),
+      if (note != null && note.isNotEmpty) 'note': note,
+      'createdBy': createdBy,
+      'createdByName': ?createdByName,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
 
     final withPayment = payDirectly && type == SupplierTxType.cargo;
     final signed = type == SupplierTxType.cargo ? amount : -amount;
     final delta = withPayment ? 0 : signed;
 
     final batch = _db.batch();
-    batch.set(_entries(supplierId).doc(), entryData(type));
-    if (withPayment) {
-      batch.set(
-          _entries(supplierId).doc(), entryData(SupplierTxType.payment));
+    final entryRef = _entries(supplierId).doc();
+    final paymentRef = withPayment ? _entries(supplierId).doc() : null;
+    batch.set(entryRef, entryData(type));
+    if (paymentRef != null) {
+      batch.set(paymentRef, entryData(SupplierTxType.payment));
     }
     batch.update(_supplierDoc(supplierId), {
       currency.balanceField: FieldValue.increment(delta),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    unawaited(batch.commit());
+    _log.commit(
+      batch,
+      action: 'entry.create',
+      ledger: _ledger,
+      partyId: supplierId,
+      entryId: entryRef.id,
+      after: {
+        'type': type.name,
+        'amount': amount,
+        'currency': currency.name,
+        'date': Timestamp.fromDate(date),
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+      balanceDelta: {currency.balanceField: delta},
+      extra: {'pairedPaymentId': ?paymentRef?.id},
+    );
   }
 
   void updateEntry({
@@ -156,32 +227,56 @@ class SupplierRepository {
     });
     // Currency may have changed: move the amount out of the old currency's
     // balance and into the new one's (same currency = single net increment).
-    final balanceUpdate = currency == old.currency
-        ? {
-            currency.balanceField:
-                FieldValue.increment(newSigned - old.signedAmount)
-          }
+    final balanceDelta = currency == old.currency
+        ? {currency.balanceField: newSigned - old.signedAmount}
         : {
-            old.currency.balanceField: FieldValue.increment(-old.signedAmount),
-            currency.balanceField: FieldValue.increment(newSigned),
+            old.currency.balanceField: -old.signedAmount,
+            currency.balanceField: newSigned,
           };
     batch.update(_supplierDoc(supplierId), {
-      ...balanceUpdate,
+      for (final e in balanceDelta.entries)
+        e.key: FieldValue.increment(e.value),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    unawaited(batch.commit());
+    _log.commit(
+      batch,
+      action: 'entry.update',
+      ledger: _ledger,
+      partyId: supplierId,
+      entryId: old.id,
+      before: old.toLog(),
+      after: {
+        'type': type.name,
+        'amount': amount,
+        'currency': currency.name,
+        'date': Timestamp.fromDate(date),
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+      balanceDelta: balanceDelta,
+    );
   }
 
+  /// Soft delete: stamps the entry `deleted` and takes its effect back out
+  /// of the balance. The doc itself is kept for the record.
   void deleteEntry({
     required String supplierId,
     required SupplierTransaction entry,
   }) {
+    final field = entry.currency.balanceField;
     final batch = _db.batch();
-    batch.delete(_entries(supplierId).doc(entry.id));
+    batch.update(_entries(supplierId).doc(entry.id), _log.deletionStamp);
     batch.update(_supplierDoc(supplierId), {
-      entry.currency.balanceField: FieldValue.increment(-entry.signedAmount),
+      field: FieldValue.increment(-entry.signedAmount),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    unawaited(batch.commit());
+    _log.commit(
+      batch,
+      action: 'entry.delete',
+      ledger: _ledger,
+      partyId: supplierId,
+      entryId: entry.id,
+      before: entry.toLog(),
+      balanceDelta: {field: -entry.signedAmount},
+    );
   }
 }

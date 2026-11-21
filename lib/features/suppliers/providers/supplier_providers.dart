@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/activity_log.dart';
 import '../../auth/providers/session_providers.dart';
 import '../data/supplier_model.dart';
 import '../data/supplier_repository.dart';
@@ -11,7 +12,8 @@ final supplierRepositoryProvider = Provider<SupplierRepository>((ref) {
   if (businessId == null) {
     throw StateError('supplierRepositoryProvider read before business link');
   }
-  return SupplierRepository(ref.watch(firestoreProvider), businessId);
+  return SupplierRepository(
+      ref.watch(firestoreProvider), businessId, ref.watch(activityLogProvider));
 });
 
 /// Live supplier list, largest outstanding amount first (USD, then SYP).

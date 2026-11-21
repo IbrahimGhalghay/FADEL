@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_strings.dart';
 import 'core/routing/app_router.dart';
+import 'core/services/activity_log.dart';
+import 'core/services/sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/session_providers.dart';
 
@@ -24,8 +26,15 @@ class _FadelAppState extends ConsumerState<FadelApp> {
     _lifecycleListener = AppLifecycleListener(
       onHide: () =>
           ref.read(sessionControllerProvider.notifier).onAppBackgrounded(),
-      onResume: () =>
-          ref.read(sessionControllerProvider.notifier).onAppResumed(),
+      onResume: () {
+        ref.read(sessionControllerProvider.notifier).onAppResumed();
+        // Android may have left the Firestore connection stale while in the
+        // background; catch up so other devices' entries show at once.
+        // (Skipped before joining a business: onboarding does server reads.)
+        if (ref.read(sessionControllerProvider).businessId != null) {
+          ref.read(syncServiceProvider).resyncInBackground();
+        }
+      },
     );
   }
 
@@ -41,6 +50,7 @@ class _FadelAppState extends ConsumerState<FadelApp> {
       title: AppStrings.appTitle,
       theme: AppTheme.light,
       routerConfig: ref.watch(routerProvider),
+      scaffoldMessengerKey: scaffoldMessengerKey,
       // Arabic-only, RTL-first.
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar')],

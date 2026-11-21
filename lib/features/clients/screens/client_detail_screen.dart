@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/ledger_party.dart';
 import '../../../core/services/receipt_printer.dart';
+import '../../../core/services/sync_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/balance_row.dart';
 import '../../../core/widgets/confirm_dialog.dart';
@@ -31,7 +32,9 @@ class ClientDetailScreen extends ConsumerWidget {
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
-          appBar: AppBar(), body: Center(child: Text('$e'))),
+        appBar: AppBar(),
+        body: Center(child: Text('$e')),
+      ),
       data: (client) {
         if (client == null) {
           // Client deleted (possibly from another device) — leave the screen.
@@ -75,8 +78,11 @@ class ClientDetailScreen extends ConsumerWidget {
                     case 'edit':
                       context.push('/clients/$clientId/edit', extra: client);
                     case 'delete':
-                      final deleted =
-                          await confirmAndDeleteClient(context, ref, client);
+                      final deleted = await confirmAndDeleteClient(
+                        context,
+                        ref,
+                        client,
+                      );
                       if (deleted && context.mounted && context.canPop()) {
                         context.pop();
                       }
@@ -107,20 +113,18 @@ class ClientDetailScreen extends ConsumerWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
+                color: Theme.of(context).colorScheme.surfaceContainerHighest
                     .withValues(alpha: 0.5),
                 child: Column(
                   children: [
-                    Text(AppStrings.balance,
-                        style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      AppStrings.balance,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     const SizedBox(height: 4),
                     BalanceRow(
                       balances: client.visibleBalances,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium!
+                      style: Theme.of(context).textTheme.headlineMedium!
                           .copyWith(fontWeight: FontWeight.bold),
                     ),
                     if (client.phone != null) ...[
@@ -132,9 +136,11 @@ class ClientDetailScreen extends ConsumerWidget {
                     ],
                     if (client.notes != null) ...[
                       const SizedBox(height: 4),
-                      Text(client.notes!,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center),
+                      Text(
+                        client.notes!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ],
                 ),
@@ -147,9 +153,10 @@ class ClientDetailScreen extends ConsumerWidget {
                     Expanded(
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.debtColor),
-                        onPressed: () => context
-                            .push('/clients/$clientId/tx/new?type=debt'),
+                          backgroundColor: AppTheme.debtColor,
+                        ),
+                        onPressed: () =>
+                            context.push('/clients/$clientId/tx/new?type=debt'),
                         icon: const Icon(Icons.add),
                         label: Text(labels.recordDebt),
                       ),
@@ -158,9 +165,11 @@ class ClientDetailScreen extends ConsumerWidget {
                     Expanded(
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.paidColor),
-                        onPressed: () => context
-                            .push('/clients/$clientId/tx/new?type=payment'),
+                          backgroundColor: AppTheme.paidColor,
+                        ),
+                        onPressed: () => context.push(
+                          '/clients/$clientId/tx/new?type=payment',
+                        ),
                         icon: const Icon(Icons.remove),
                         label: Text(labels.recordPayment),
                       ),
@@ -171,35 +180,45 @@ class ClientDetailScreen extends ConsumerWidget {
               const Divider(height: 1),
               // --- Transaction history, newest first ---
               Expanded(
-                child: txAsync.when(
-                  data: (transactions) {
-                    if (transactions.isEmpty) {
-                      return const Center(
-                          child: Text(AppStrings.noTransactions));
-                    }
-                    return ListView.separated(
-                      itemCount: transactions.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final tx = transactions[index];
-                        final isDebt = tx.type == TxType.debt;
-                        return LedgerEntryTile(
-                          label: isDebt ? labels.debt : labels.payment,
-                          increase: isDebt,
-                          amount: tx.amount,
-                          currency: tx.currency,
-                          date: tx.date,
-                          note: tx.note,
-                          byName: tx.createdByName,
-                          onLongPress: () =>
-                              _showTransactionActions(context, ref, tx),
+                child: RefreshIndicator(
+                  onRefresh: () => _refresh(context, ref),
+                  child: txAsync.when(
+                    data: (transactions) {
+                      if (transactions.isEmpty) {
+                        // Scrollable so pull-to-refresh works when empty too.
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 48),
+                            Center(child: Text(AppStrings.noTransactions)),
+                          ],
                         );
-                      },
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('$e')),
+                      }
+                      return ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: transactions.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final tx = transactions[index];
+                          final isDebt = tx.type == TxType.debt;
+                          return LedgerEntryTile(
+                            label: isDebt ? labels.debt : labels.payment,
+                            increase: isDebt,
+                            amount: tx.amount,
+                            currency: tx.currency,
+                            date: tx.date,
+                            note: tx.note,
+                            byName: tx.createdByName,
+                            onLongPress: () =>
+                                _showTransactionActions(context, ref, tx),
+                          );
+                        },
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('$e')),
+                  ),
                 ),
               ),
             ],
@@ -209,8 +228,27 @@ class ClientDetailScreen extends ConsumerWidget {
     );
   }
 
+  /// Pull-to-refresh: reconnect and wait for this history to come back
+  /// from the server.
+  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(transactionRepositoryProvider);
+    try {
+      await ref.read(syncServiceProvider).refresh([
+        () => repo.fetchFromServer(clientId),
+      ]);
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(AppStrings.syncFailed)),
+      );
+    }
+  }
+
   void _showTransactionActions(
-      BuildContext context, WidgetRef ref, ClientTransaction tx) {
+    BuildContext context,
+    WidgetRef ref,
+    ClientTransaction tx,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -226,8 +264,10 @@ class ClientDetailScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline,
-                  color: Theme.of(context).colorScheme.error),
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
               title: const Text(AppStrings.delete),
               onTap: () async {
                 Navigator.pop(sheetContext);
@@ -237,8 +277,9 @@ class ClientDetailScreen extends ConsumerWidget {
                   message: AppStrings.confirmDeleteTransaction,
                 );
                 if (confirmed) {
-                  ref.read(transactionRepositoryProvider).deleteTransaction(
-                      clientId: clientId, transaction: tx);
+                  ref
+                      .read(transactionRepositoryProvider)
+                      .deleteTransaction(clientId: clientId, transaction: tx);
                 }
               },
             ),

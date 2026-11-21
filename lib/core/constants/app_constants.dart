@@ -29,4 +29,5 @@ class AppConstants {
   static const String clientsCollection = 'clients';
   static const String suppliersCollection = 'suppliers';
   static const String transactionsCollection = 'transactions';
+  static const String logsCollection = 'logs';
 }

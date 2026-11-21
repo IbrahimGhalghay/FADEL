@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/models/ledger_party.dart';
 import '../../../core/services/receipt_printer.dart';
+import '../../../core/services/sync_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/balance_row.dart';
 import '../../../core/widgets/confirm_dialog.dart';
@@ -30,8 +31,10 @@ class SupplierDetailScreen extends ConsumerWidget {
     return supplierAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) =>
-          Scaffold(appBar: AppBar(), body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text('$e')),
+      ),
       data: (supplier) {
         if (supplier == null) {
           // Deleted (possibly from another device) — leave the screen.
@@ -73,11 +76,16 @@ class SupplierDetailScreen extends ConsumerWidget {
                 onSelected: (value) async {
                   switch (value) {
                     case 'edit':
-                      context.push('/suppliers/$supplierId/edit',
-                          extra: supplier);
+                      context.push(
+                        '/suppliers/$supplierId/edit',
+                        extra: supplier,
+                      );
                     case 'delete':
                       final deleted = await confirmAndDeleteSupplier(
-                          context, ref, supplier);
+                        context,
+                        ref,
+                        supplier,
+                      );
                       if (deleted && context.mounted && context.canPop()) {
                         context.pop();
                       }
@@ -108,20 +116,18 @@ class SupplierDetailScreen extends ConsumerWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
-                color: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest
+                color: Theme.of(context).colorScheme.surfaceContainerHighest
                     .withValues(alpha: 0.5),
                 child: Column(
                   children: [
-                    Text(AppStrings.balance,
-                        style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      AppStrings.balance,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     const SizedBox(height: 4),
                     BalanceRow(
                       balances: supplier.visibleBalances,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium!
+                      style: Theme.of(context).textTheme.headlineMedium!
                           .copyWith(fontWeight: FontWeight.bold),
                     ),
                     if (supplier.phone != null) ...[
@@ -133,9 +139,11 @@ class SupplierDetailScreen extends ConsumerWidget {
                     ],
                     if (supplier.notes != null) ...[
                       const SizedBox(height: 4),
-                      Text(supplier.notes!,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center),
+                      Text(
+                        supplier.notes!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ],
                 ),
@@ -148,9 +156,11 @@ class SupplierDetailScreen extends ConsumerWidget {
                     Expanded(
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.debtColor),
+                          backgroundColor: AppTheme.debtColor,
+                        ),
                         onPressed: () => context.push(
-                            '/suppliers/$supplierId/tx/new?type=cargo'),
+                          '/suppliers/$supplierId/tx/new?type=cargo',
+                        ),
                         icon: const Icon(Icons.add),
                         label: Text(labels.recordCargo),
                       ),
@@ -159,9 +169,11 @@ class SupplierDetailScreen extends ConsumerWidget {
                     Expanded(
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.paidColor),
+                          backgroundColor: AppTheme.paidColor,
+                        ),
                         onPressed: () => context.push(
-                            '/suppliers/$supplierId/tx/new?type=payment'),
+                          '/suppliers/$supplierId/tx/new?type=payment',
+                        ),
                         icon: const Icon(Icons.remove),
                         label: Text(labels.recordPayment),
                       ),
@@ -172,35 +184,45 @@ class SupplierDetailScreen extends ConsumerWidget {
               const Divider(height: 1),
               // --- Cargo/payment history, newest first ---
               Expanded(
-                child: entriesAsync.when(
-                  data: (entries) {
-                    if (entries.isEmpty) {
-                      return const Center(
-                          child: Text(AppStrings.noTransactions));
-                    }
-                    return ListView.separated(
-                      itemCount: entries.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        final isCargo = entry.type == SupplierTxType.cargo;
-                        return LedgerEntryTile(
-                          label: isCargo ? labels.cargo : labels.payment,
-                          increase: isCargo,
-                          amount: entry.amount,
-                          currency: entry.currency,
-                          date: entry.date,
-                          note: entry.note,
-                          byName: entry.createdByName,
-                          onLongPress: () =>
-                              _showEntryActions(context, ref, entry),
+                child: RefreshIndicator(
+                  onRefresh: () => _refresh(context, ref),
+                  child: entriesAsync.when(
+                    data: (entries) {
+                      if (entries.isEmpty) {
+                        // Scrollable so pull-to-refresh works when empty too.
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 48),
+                            Center(child: Text(AppStrings.noTransactions)),
+                          ],
                         );
-                      },
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('$e')),
+                      }
+                      return ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: entries.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          final isCargo = entry.type == SupplierTxType.cargo;
+                          return LedgerEntryTile(
+                            label: isCargo ? labels.cargo : labels.payment,
+                            increase: isCargo,
+                            amount: entry.amount,
+                            currency: entry.currency,
+                            date: entry.date,
+                            note: entry.note,
+                            byName: entry.createdByName,
+                            onLongPress: () =>
+                                _showEntryActions(context, ref, entry),
+                          );
+                        },
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('$e')),
+                  ),
                 ),
               ),
             ],
@@ -210,8 +232,27 @@ class SupplierDetailScreen extends ConsumerWidget {
     );
   }
 
+  /// Pull-to-refresh: reconnect and wait for this history to come back
+  /// from the server.
+  Future<void> _refresh(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(supplierRepositoryProvider);
+    try {
+      await ref.read(syncServiceProvider).refresh([
+        () => repo.fetchFromServer(supplierId),
+      ]);
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(AppStrings.syncFailed)),
+      );
+    }
+  }
+
   void _showEntryActions(
-      BuildContext context, WidgetRef ref, SupplierTransaction entry) {
+    BuildContext context,
+    WidgetRef ref,
+    SupplierTransaction entry,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -223,13 +264,17 @@ class SupplierDetailScreen extends ConsumerWidget {
               title: const Text(AppStrings.editTransaction),
               onTap: () {
                 Navigator.pop(sheetContext);
-                context.push('/suppliers/$supplierId/tx/${entry.id}/edit',
-                    extra: entry);
+                context.push(
+                  '/suppliers/$supplierId/tx/${entry.id}/edit',
+                  extra: entry,
+                );
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline,
-                  color: Theme.of(context).colorScheme.error),
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
               title: const Text(AppStrings.delete),
               onTap: () async {
                 Navigator.pop(sheetContext);

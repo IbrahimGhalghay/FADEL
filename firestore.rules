@@ -10,6 +10,93 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/businesses/$(businessId)/members/$(request.auth.uid));
     }
 
+    // --- Soft delete ---
+    // Nothing in a ledger is ever hard deleted (`allow delete: if false`).
+    // Deleting stamps the doc `deleted: true` + who/when; apps hide such
+    // docs. A deleted doc is frozen: no further edits, no re-delete.
+
+    function isLive(data) {
+      return data.get('deleted', false) == false;
+    }
+
+    // The update only adds the deletion stamp (plus [extraKeys]).
+    function isDeletionStamp(extraKeys) {
+      return request.resource.data.deleted == true
+        && request.resource.data.deletedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['deleted', 'deletedAt', 'deletedBy', 'deletedByName']
+               .concat(extraKeys));
+    }
+
+    // --- Ledger integrity ---
+    // A party's (client's/supplier's) `balance`/`balanceSyp` is a running
+    // total moved by FieldValue.increment in the same batch as each entry
+    // write. The app computes that increment from its local copy of the
+    // entry, which can be stale (deleted or edited on another device while
+    // this one was offline). These checks recompute the required move from
+    // the entry as the SERVER has it and reject the whole batch on mismatch,
+    // so a stale delete/edit can never double-count. Rejected batches are
+    // rolled back in every device's cache.
+
+    // Effect of an entry on its party's balance. [increaseType] is the type
+    // that raises it ('debt' for clients, 'cargo' for suppliers).
+    function signedAmount(entry, increaseType) {
+      return entry.type == increaseType ? entry.amount : -entry.amount;
+    }
+
+    // Party balance field for an entry's currency (missing currency = USD).
+    function balanceField(entry) {
+      return entry.get('currency', 'usd') == 'syp' ? 'balanceSyp' : 'balance';
+    }
+
+    // How far this write moves [field] on the party doc. Missing fields
+    // count as 0 (clients created before multi-currency lack balanceSyp).
+    function balanceMove(partyPath, field) {
+      return getAfter(partyPath).data.get(field, 0)
+        - get(partyPath).data.get(field, 0);
+    }
+
+    // Float-tolerant equality (0.1 + 0.2 style rounding in increments).
+    function near(a, b) {
+      return math.abs(a - b) < 0.001;
+    }
+
+    // Soft-deleting a live entry must move the balance back by exactly its
+    // effect. A second delete finds it already deleted and is denied, so a
+    // repeated delete can't subtract twice.
+    function validEntryDelete(partyPath, increaseType) {
+      return isDeletionStamp([])
+        && near(balanceMove(partyPath, balanceField(resource.data)),
+                -signedAmount(resource.data, increaseType));
+    }
+
+    // Editing an entry must move the balance by (new effect − old effect),
+    // measured against the stored entry — moving between currency fields
+    // when the currency changed.
+    function validEntryEdit(partyPath, increaseType) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let oldField = balanceField(before);
+      let newField = balanceField(after);
+      return isLive(after) && (oldField == newField
+        ? near(balanceMove(partyPath, newField),
+               signedAmount(after, increaseType) - signedAmount(before, increaseType))
+        : near(balanceMove(partyPath, oldField), -signedAmount(before, increaseType))
+          && near(balanceMove(partyPath, newField), signedAmount(after, increaseType)));
+    }
+
+    // Shared by clients and suppliers. Updates to a deleted party are denied
+    // too, which also rejects entry writes against it (their balance
+    // increment is a party update).
+    function validPartyCreate() {
+      return isLive(request.resource.data);
+    }
+
+    function validPartyUpdate() {
+      return isLive(resource.data)
+        && (isLive(request.resource.data) || isDeletionStamp(['updatedAt']));
+    }
+
     match /businesses/{businessId} {
       // Read-only, except members may edit the shared UI labels. Businesses
       // are created ONLY via the Firebase Console or the Admin-SDK
@@ -29,11 +116,21 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // Activity log: append-only audit trail of ledger writes, created in
+      // the same batch as the change it describes (see ActivityLog).
+      match /logs/{logId} {
+        allow read: if isMember(businessId);
+        allow create: if isMember(businessId)
+          && request.resource.data.action is string
+          && request.resource.data.at == request.time;
+        allow update, delete: if false;
+      }
+
       match /clients/{clientId} {
         allow read: if isMember(businessId);
-        allow create: if isMember(businessId) && validClient();
-        allow update: if isMember(businessId) && validClient();
-        allow delete: if isMember(businessId);
+        allow create: if isMember(businessId) && validClient() && validPartyCreate();
+        allow update: if isMember(businessId) && validClient() && validPartyUpdate();
+        allow delete: if false;
 
         function validClient() {
           return request.resource.data.name is string
@@ -43,9 +140,17 @@ service cloud.firestore {
 
         match /transactions/{transactionId} {
           allow read: if isMember(businessId);
-          allow create: if isMember(businessId) && validTransaction();
-          allow update: if isMember(businessId) && validTransaction();
-          allow delete: if isMember(businessId);
+          allow create: if isMember(businessId) && validTransaction()
+            && isLive(request.resource.data);
+          allow update: if isMember(businessId) && validTransaction()
+            && isLive(resource.data)
+            && (validEntryEdit(clientPath(), 'debt')
+                || validEntryDelete(clientPath(), 'debt'));
+          allow delete: if false;
+
+          function clientPath() {
+            return /databases/$(database)/documents/businesses/$(businessId)/clients/$(clientId);
+          }
 
           function validTransaction() {
             return request.resource.data.type in ['debt', 'payment']
@@ -59,9 +164,9 @@ service cloud.firestore {
 
       match /suppliers/{supplierId} {
         allow read: if isMember(businessId);
-        allow create: if isMember(businessId) && validSupplier();
-        allow update: if isMember(businessId) && validSupplier();
-        allow delete: if isMember(businessId);
+        allow create: if isMember(businessId) && validSupplier() && validPartyCreate();
+        allow update: if isMember(businessId) && validSupplier() && validPartyUpdate();
+        allow delete: if false;
 
         function validSupplier() {
           return request.resource.data.name is string
@@ -72,9 +177,17 @@ service cloud.firestore {
         // Cargo received from the supplier, and payments made to them.
         match /transactions/{transactionId} {
           allow read: if isMember(businessId);
-          allow create: if isMember(businessId) && validSupplierEntry();
-          allow update: if isMember(businessId) && validSupplierEntry();
-          allow delete: if isMember(businessId);
+          allow create: if isMember(businessId) && validSupplierEntry()
+            && isLive(request.resource.data);
+          allow update: if isMember(businessId) && validSupplierEntry()
+            && isLive(resource.data)
+            && (validEntryEdit(supplierPath(), 'cargo')
+                || validEntryDelete(supplierPath(), 'cargo'));
+          allow delete: if false;
+
+          function supplierPath() {
+            return /databases/$(database)/documents/businesses/$(businessId)/suppliers/$(supplierId);
+          }
 
           function validSupplierEntry() {
             return request.resource.data.type in ['cargo', 'payment']

@@ -14,6 +14,7 @@ class Supplier implements LedgerParty {
     required this.balanceSyp,
     this.createdAt,
     this.updatedAt,
+    this.deleted = false,
   });
 
   @override
@@ -33,6 +34,19 @@ class Supplier implements LedgerParty {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  /// Soft-deleted: kept (with its history) but hidden everywhere.
+  /// Parties are never hard deleted.
+  final bool deleted;
+
+  /// This party as this device sees it, for the activity log.
+  Map<String, dynamic> toLog() => {
+    'name': name,
+    'phone': ?phone,
+    'notes': ?notes,
+    AppCurrency.usd.balanceField: balanceUsd,
+    AppCurrency.syp.balanceField: balanceSyp,
+  };
+
   @override
   double balance(AppCurrency currency) =>
       currency == AppCurrency.usd ? balanceUsd : balanceSyp;
@@ -44,12 +58,13 @@ class Supplier implements LedgerParty {
       name: (data['name'] as String?) ?? '',
       phone: data['phone'] as String?,
       notes: data['notes'] as String?,
-      balanceUsd:
-          ((data[AppCurrency.usd.balanceField] as num?) ?? 0).toDouble(),
-      balanceSyp:
-          ((data[AppCurrency.syp.balanceField] as num?) ?? 0).toDouble(),
+      balanceUsd: ((data[AppCurrency.usd.balanceField] as num?) ?? 0)
+          .toDouble(),
+      balanceSyp: ((data[AppCurrency.syp.balanceField] as num?) ?? 0)
+          .toDouble(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      deleted: data['deleted'] == true,
     );
   }
 }

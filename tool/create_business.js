@@ -14,7 +14,8 @@
  *   node create_business.js "F@del"
  */
 const path = require('path');
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 const businessId = process.argv[2];
 if (!businessId) {
@@ -22,13 +23,13 @@ if (!businessId) {
   process.exit(1);
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(
+initializeApp({
+  credential: cert(
     require(path.join(__dirname, 'serviceAccountKey.json'))
   ),
 });
 
-const db = admin.firestore();
+const db = getFirestore();
 
 (async () => {
   const ref = db.collection('businesses').doc(businessId);
@@ -38,7 +39,7 @@ const db = admin.firestore();
     return;
   }
   await ref.set({
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
   console.log(`Business "${businessId}" created successfully.`);
   console.log('Employees can now join it from the app using this ID.');

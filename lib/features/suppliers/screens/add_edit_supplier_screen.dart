@@ -58,7 +58,7 @@ class _AddEditSupplierScreenState extends ConsumerState<AddEditSupplierScreen> {
     final phone = _phoneController.text.trim();
     final notes = _notesController.text.trim();
     if (_isEditing) {
-      repo.updateSupplier(widget.supplier!.id,
+      repo.updateSupplier(widget.supplier!,
           name: name, phone: phone, notes: notes);
     } else {
       repo.addSupplier(name: name, phone: phone, notes: notes);

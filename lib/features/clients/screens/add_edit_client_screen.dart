@@ -56,7 +56,7 @@ class _AddEditClientScreenState extends ConsumerState<AddEditClientScreen> {
     final phone = _phoneController.text.trim();
     final notes = _notesController.text.trim();
     if (_isEditing) {
-      repo.updateClient(widget.client!.id,
+      repo.updateClient(widget.client!,
           name: name, phone: phone, notes: notes);
     } else {
       repo.addClient(name: name, phone: phone, notes: notes);
